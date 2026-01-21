@@ -1,0 +1,61 @@
+{
+  "top3Structures": [
+    {
+      "structure": "钩子+卖点+证明",
+      "occurrenceCount": 1,
+      "rank": 1
+    },
+    {
+      "structure": "钩子+证明+卖点+证明+场景+证明+卖点+证明+卖点+证明",
+      "occurrenceCount": 1,
+      "rank": 2
+    },
+    {
+      "structure": "钩子+卖点+证明+卖点+证明+场景",
+      "occurrenceCount": 1,
+      "rank": 3
+    }
+  ],
+  "videoNicheAndStructure": [
+    {
+      "fileName": "素材1.mp4",
+      "niche": "美妆工具",
+      "structure": "钩子+卖点+证明"
+    },
+    {
+      "fileName": "素材2.mp4",
+      "niche": "美妆工具",
+      "structure": "钩子+证明+卖点+证明+场景+证明+卖点+证明+卖点+证明"
+    },
+    {
+      "fileName": "素材3.mp4",
+      "niche": "美妆工具",
+      "structure": "钩子+卖点+证明+卖点+证明+场景"
+    },
+    {
+      "fileName": "素材4.mp4",
+      "niche": "美妆工具",
+      "structure": "钩子+卖点+证明+卖点"
+    },
+    {
+      "fileName": "素材5.mp4",
+      "niche": "美妆工具",
+      "structure": "钩子+证明+卖点+证明+卖点"
+    },
+    {
+      "fileName": "素材6.mp4",
+      "niche": "美妆工具",
+      "structure": "钩子+证明+卖点+证明+转化"
+    },
+    {
+      "fileName": "素材7.mp4",
+      "niche": "美妆工具",
+      "structure": "钩子+场景+卖点+证明+卖点"
+    },
+    {
+      "fileName": "素材8.mp4",
+      "niche": "美妆工具",
+      "structure": "钩子+卖点"
+    }
+  ]
+}
