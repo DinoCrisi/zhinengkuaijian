@@ -55,7 +55,8 @@ MANIFEST
 # Video Outputs
 output_videos/
 server/output_videos/
-result/*.json
+result/**/*.json
+result/result/
 
 # Project specific
 素材库.txt
