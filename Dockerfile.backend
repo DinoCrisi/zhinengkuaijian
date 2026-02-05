@@ -1,0 +1,53 @@
+# 后端 Dockerfile
+FROM python:3.11-slim
+
+# 安装系统依赖
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libsndfile1 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# 复制 Python 依赖文件
+COPY requirements.txt .
+COPY pyJianYingDraft/requirements.txt ./pyJianYingDraft/
+
+# 安装 Python 依赖
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 安装 pyJianYingDraft
+COPY pyJianYingDraft ./pyJianYingDraft
+RUN pip install -e ./pyJianYingDraft
+
+# 复制后端代码
+COPY server ./server
+COPY word ./word
+COPY .env .env
+
+# 创建必要的目录
+RUN mkdir -p \
+    server/temp_videos \
+    server/output_videos \
+    server/output_drafts \
+    server/output_segments \
+    server/stored_videos \
+    server/stored_videos/thumbnails \
+    server/stored_videos/archive
+
+# 设置环境变量
+ENV PYTHONUNBUFFERED=1
+ENV KMP_DUPLICATE_LIB_OK=TRUE
+
+WORKDIR /app/server
+
+# 暴露所有服务端口
+EXPOSE 8888 8889 8890 8891 8892
+
+# 启动脚本将由 docker-compose 指定
+CMD ["python", "proxy_server.py"]

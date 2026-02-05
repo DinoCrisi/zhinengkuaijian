@@ -9,12 +9,14 @@ import { ViewType, ProjectStatus, AppState, DeconstructedVideo, GeneratedVideo, 
 import { analyzeVideoReal } from './services/videoAnalysisService';
 import { GlassCard } from './components/GlassCard';
 import { StepIndicator } from './components/StepIndicator';
+import { API_URLS } from './config/apiConfig';
 
 // --- Main App ---
 
 export default function App() {
   // --- States ---
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [originalVideoFile, setOriginalVideoFile] = useState<File | null>(null); // 保存原始视频文件用于导出
   const [srtContent, setSrtContent] = useState<string>('');
   const [srtFileName, setSrtFileName] = useState<string>('');
   const [isSrtTranscribing, setIsSrtTranscribing] = useState<boolean>(false);
@@ -36,6 +38,9 @@ export default function App() {
   
   // 素材详情卡片显示状态
   const [expandedAsset, setExpandedAsset] = useState<string | null>(null);
+  
+  // 剪映草稿路径
+  const [jianyingDraftPath, setJianyingDraftPath] = useState<string>('');
 
   const pushToast = (type: 'success' | 'error' | 'info', message: string) => {
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -67,101 +72,20 @@ export default function App() {
   }>>([]);
 
   const [state, setState] = useState<AppState>(() => {
-    // 临时清除旧数据，确保使用新的初始素材库数据
-    localStorage.removeItem('smartclip_v2_data');
     const saved = localStorage.getItem('smartclip_v2_data');
-    
-    // 从素材库.txt导入的初始数据
-    const rawAssets = [
-      { "product_name": "厨房刷", "segments": [
-        { "primary_tag": "钩子", "secondary_tags": ["高密度", "产品特写+行为演示"], "timecode": "00:00-00:04", "description": "展示按压出液式锅刷，往手柄加洗洁精后按压出液", "prompt": "厨房水槽场景，白色按压式锅刷特写，手往手柄倒入透明洗洁精，按压手柄刷头出液，水流清晰，背景是整洁厨房，自然光，静态镜头，4k画质，细节丰富。", "first_frame_prompt": "特写构图，画面主体为白色按压式锅刷，手握着锅刷手柄，另一只手往手柄倒入透明洗洁精，背景是厨房水槽，光线明亮柔和，4K超高清，照片级真实感，细节丰富，专业商业摄影。" },
-        { "primary_tag": "证明", "secondary_tags": ["中密度", "行为演示+对比镜头"], "timecode": "00:04-00:08", "description": "对比展示锅刷和钢丝球刷锅的效果，锅刷不脏手不烫手，钢丝球伤锅掉渣", "prompt": "厨房水槽场景，左边手用白色锅刷快速刷洗热锅，泡沫丰富；右边手用钢丝球刷锅，锅具表面有划痕，钢丝球掉渣，分屏对比，自然光，动态镜头，4k画质，细节清晰。", "first_frame_prompt": "分屏构图，左右对称，左边画面是手握着白色锅刷刷洗热锅，泡沫丰富；右边画面是手握着钢丝球刷锅，锅具表面有划痕，背景是厨房水槽，光线明亮，4K超高清，照片级真实感，细节丰富，专业商业摄影。" },
-        { "primary_tag": "卖点", "secondary_tags": ["中密度", "产品特写"], "timecode": "00:08-00:11", "description": "展示锅刷的可旋转刷头，强调使用灵活性与方便性", "prompt": "厨房水槽场景，手握着白色锅刷，旋转刷头展示多角度灵活性，背景整洁，自然光，静态特写，4k画质，细节清晰。", "first_frame_prompt": "特写构图，画面主体为白色锅刷的刷头，手正在旋转刷头，展示其可多角度转动的特性，背景是厨房水槽，光线明亮，4K超高清，照片级真实感，细节丰富，专业商业摄影。" },
-        { "primary_tag": "证明", "secondary_tags": ["中密度", "行为演示"], "timecode": "00:11-00:17", "description": "演示锅刷直立状态下刷洗水壶、破壁机壶底的效果，展示多功能性", "prompt": "厨房场景，手握着白色锅刷，切换手柄为直立状态，深入玻璃水壶和破壁机内部刷洗壶底，泡沫丰富，背景整洁，自然光，动态镜头，4k画质，细节清晰。", "first_frame_prompt": "中景构图，画面主体为手握着白色锅刷，将手柄切换为直立状态，深入玻璃水壶内部，背景是厨房台面，光线明亮，4K超高清，照片级真实感，细节丰富，专业商业摄影。" },
-        { "primary_tag": "卖点", "secondary_tags": ["中密度", "产品特写+行为演示"], "timecode": "00:17-00:21", "description": "介绍锅刷的PET刷毛材质，演示其清洁不同锅具且不伤锅的效果", "prompt": "厨房场景，手触摸白色锅刷的灰色PET刷毛，展示刷毛软硬适中，然后用锅刷分别刷洗黑色炒锅和浅色炖锅，泡沫丰富，锅具无划痕，自然光，动态镜头，4k画质，细节清晰。", "first_frame_prompt": "特写构图，画面主体为白色锅刷的灰色PET刷毛，手正在触摸刷毛，展示其软硬适中的质感，背景是厨房水槽，光线明亮，4K超高清，照片级真实感，细节丰富，专业商业摄影。" },
-        { "primary_tag": "证明", "secondary_tags": ["中密度", "行为演示"], "timecode": "00:21-00:28", "description": "演示按压出液功能，并用锅刷清洁煎锅、碗、菜板、水槽，展示多场景使用", "prompt": "厨房场景，手按压白色锅刷手柄出液，分别刷洗浅色煎锅、带图案的碗、粉色菜板、不锈钢水槽，泡沫丰富，清洁效果明显，自然光，动态镜头，4k画质，细节清晰。", "first_frame_prompt": "中景构图，画面主体为手按压白色锅刷手柄出液，下方是浅色煎锅，背景是厨房台面，光线明亮，4K超高清，照片级真实感，细节丰富，专业商业摄影。" },
-        { "primary_tag": "卖点", "secondary_tags": ["低密度", "产品特写+行为演示"], "timecode": "00:28-00:34", "description": "介绍锅刷手柄的易清洁、不发霉特性，展示悬挂收纳和两款颜色", "prompt": "厨房场景，手握着白色锅刷在水龙头下冲洗，水流冲净刷毛，然后将锅刷悬挂在挂架上，最后双手分别拿着白色和米白绿色两款锅刷，背景整洁，自然光，静态镜头，4k画质，细节清晰。", "first_frame_prompt": "中景构图，画面主体为手握着白色锅刷在水龙头下冲洗，水流清晰，背景是厨房水槽，光线明亮，4K超高清，照片级真实感，细节丰富，专业商业摄影。" }
-      ]},
-      { "product_name": "电饭煲", "segments": [
-        { "primary_tag": "钩子", "secondary_tags": ["高密度", "产品特写+行为演示"], "timecode": "00:00-00:04", "description": "展示迷你电饭锅的分层内胆结构，取出装有汤的内胆，露出下方电饭锅内的米饭和香肠，同时口播介绍是给婆婆的迷你电饭锅，适合一两口人", "prompt": "俯视角度，木质桌面，白色迷你电饭锅，双手取出分层不锈钢内胆，内胆装有黄色汤品，下方锅内是米饭和香肠切片，暖色调自然光，静态镜头，真实家庭场景，4k画质，细节丰富", "first_frame_prompt": "俯视构图，画面比例16:9，暖色调柔和自然光，明亮清晰。主体为白色迷你电饭锅，一只手正在取出上层不锈钢内胆，内胆装有少量液体，左侧是粉色同款电饭锅，背景是灰色窗帘与木质桌面。4K超高清，照片级真实感，细节丰富，生活化场景拍摄" },
-        { "primary_tag": "卖点", "secondary_tags": ["中密度", "产品特写+行为演示"], "timecode": "00:04-00:08", "description": "展示印有“Rainbow piggy”的白色便携收纳袋，从袋中取出白色迷你电饭锅，口播说明操作简单，适合1-2人使用", "prompt": "中景，木质桌面，双手从白色便携袋中取出白色迷你电饭锅，袋身印有“Rainbow piggy”字样，背景是灰色窗帘与绿植，暖色调自然光，静态镜头，4k画质，细节丰富", "first_frame_prompt": "中景构图，画面比例16:9，暖色调柔和自然光，明亮清晰。主体为白色便携袋与白色迷你电饭锅，双手正在从袋中取出电饭锅，背景是灰色窗帘、绿植与木质桌面。4K超高清，照片级真实感，细节丰富，生活化场景拍摄" },
-        { "primary_tag": "证明", "secondary_tags": ["中密度", "行为演示"], "timecode": "00:08-00:10", "description": "双手持透明量杯，往白色迷你电饭锅内倒入两杯米，直观证明容量刚好适合1-2人", "prompt": "俯视角度，木质桌面，双手持两个装米的透明量杯，往白色迷你电饭锅内倒米，米粒流动清晰可见，暖色调自然光，动态镜头，4k画质，细节丰富", "first_frame_prompt": "俯视构图，画面比例16:9，暖色调柔和自然光，明亮清晰。主体为白色迷你电饭锅与两个装米的透明量杯，双手正在往锅内倒米，米粒呈流动状，背景是木质桌面。4K超高清，照片级真实感，细节丰富，生活化场景拍摄" },
-        { "primary_tag": "证明", "secondary_tags": ["中密度", "行为演示+产品特写"], "timecode": "00:10-00:12", "description": "一只手拿着装有米饭的白色小碗，另一只手用木勺从白色迷你电饭锅里盛出冒着热气的南瓜汤，口播说明熬粥煲汤不会溢锅，煮的米饭好吃", "prompt": "中景，木质桌面，手持装米饭的白色小碗，木勺盛出电饭锅内的南瓜块汤品，汤面冒着热气，暖色调自然光，动态镜头，4k画质，细节丰富", "first_frame_prompt": "中景构图，画面比例16:9，暖色调柔和自然光，明亮清晰。主体为白色迷你电饭锅、木勺与装米饭的白色小碗，木勺盛出带南瓜块的汤品，汤面有热气，背景是灰色窗帘与木质桌面。4K超高清，照片级真实感，细节丰富，生活化场景拍摄" },
-        { "primary_tag": "证明", "secondary_tags": ["中密度", "行为演示+产品特写"], "timecode": "00:12-00:13", "description": "双手把装有南瓜盅（内含食材）的白色内胆，放进粉色迷你电饭锅内，证明产品具备蒸制功能", "prompt": "俯视角度，木质桌面，双手将装着南瓜盅的白色内胆放进粉色迷你电饭锅，南瓜盅内有红枣等食材，暖色调自然光，静态镜头，4k画质，细节丰富", "first_frame_prompt": "俯视构图，画面比例16:9，暖色调柔和自然光，明亮清晰。主体为粉色迷你电饭锅与装南瓜盅的白色内胆，双手正在将内胆放进锅内，南瓜盅内有食材，背景是木质桌面。4K超高清，照片级真实感，细节丰富，生活化场景拍摄" },
-        { "primary_tag": "证明", "secondary_tags": ["中密度", "行为演示"], "timecode": "00:13-00:15", "description": "在厨房水槽前，双手拿着浅绿色迷你电饭锅在水流下冲洗，锅体一冲即净，证明清洗方便", "prompt": "中景，厨房水槽，双手持浅绿色迷你电饭锅在水流下冲洗，水流清澈，锅体表面无残留，冷色调自然光，动态镜头，4k画质，细节丰富", "first_frame_prompt": "中景构图，画面比例16:9，冷色调明亮自然光，清晰干净。主体为浅绿色迷你电饭锅与厨房水槽，双手拿着锅在水流下冲洗，水流冲击锅体，背景是洗手台与镜子。4K超高清，照片级真实感，细节丰富，生活化场景拍摄" }
-      ]},
-      { "product_name": "一次性拖把", "segments": [
-        { "primary_tag": "钩子", "secondary_tags": ["高密度", "行为演示+对比镜头"], "timecode": "00:00-00:05", "description": "演示将透明无纺布扫把套套在扫把上清扫地面垃圾，对比展示普通扫把粘头发需用手抠的家务痛点", "prompt": "中景+特写结合，(前半段)双手将透明无纺布扫把套套在浅棕手柄的扫把上，清扫大理石地面的纸屑垃圾；(后半段)一只手抠普通扫把上粘缠的头发，室内明亮自然光，真实家居场景，4k画质，细节丰富。", "first_frame_prompt": "中景构图，画面比例16:9，双手拿着透明无纺布扫把套准备套在浅棕手柄扫把上，背景是浅灰大理石地面和灰色柜子，光线明亮柔和，来自顶部的室内自然光。主体为透明轻薄的扫把套和浅棕扫把，材质纹理清晰可见。4K超高清，照片级真实感，细节丰富，生活化摄影。" },
-        { "primary_tag": "卖点", "secondary_tags": ["中密度", "产品特写+行为演示"], "timecode": "00:05-00:16", "description": "介绍扫把套为无纺布材质，透明有弹性，可随意拉伸套在扫把上，弹力收缩好不易滑落", "prompt": "特写镜头，双手拉扯扫把套的弹性带展示拉伸性，将透明扫把套套在扫把上展示贴合度，背景有黄色仿真植物和白色台面，室内明亮光线，4k画质，清晰呈现材质纹理。", "first_frame_prompt": "特写构图，画面比例16:9，一只手戴着透明无纺布扫把套展示轻薄通透的材质，背景是白色台面和黄色仿真植物，光线明亮柔和，来自侧上方的散射光。扫把套纹理清晰，手部皮肤细节可见。4K超高清，照片级真实感，细节丰富，商业产品摄影。" },
-        { "primary_tag": "证明", "secondary_tags": ["中密度", "行为演示+场景空镜"], "timecode": "00:16-00:22", "description": "展示用套有扫把套的扫把清扫柜子底下的垃圾、地面碎屑以及墙壁灰尘，清洁效果干净彻底", "prompt": "中景拍摄，用套好扫把套的扫把清扫电视柜底下的垃圾、大理石地面的瓜子壳碎屑、浅灰墙面的灰尘，室内家居场景，明亮自然光，4k画质，真实还原清洁场景。", "first_frame_prompt": "中景构图，画面比例16:9，扫把清扫电视柜底下的垃圾，背景是浅灰大理石地面和灰色电视柜，光线明亮，来自室内顶部光源。垃圾细节清晰，扫把套贴合扫把的状态可见。4K超高清，照片级真实感，细节丰富，生活化摄影。" },
-        { "primary_tag": "转化", "secondary_tags": ["中密度", "行为演示+产品特写"], "timecode": "00:22-00:26", "description": "演示将脏了的扫把套摘下直接丢进垃圾桶，随后展示一堆扫把套，引导用户囤货购买", "prompt": "特写+中景结合，将脏扫把套从红色扫把上摘下丢进绿色壁挂垃圾桶，接着双手捧着一堆白色扫把套放在白色台面上，室内明亮光线，4k画质，传递便捷性和高性价比。", "first_frame_prompt": "特写构图，画面比例16:9，手将脏扫把套丢进绿色壁挂垃圾桶，背景是白色台面和仿真花草，光线明亮柔和。垃圾桶和扫把套的细节清晰可见。4K超高清，照片级真实感，细节丰富，商业产品摄影。" }
-      ]},
-      { "product_name": "充电线", "segments": [
-        { "primary_tag": "钩子", "secondary_tags": ["高密度", "对比镜头+产品特写"], "timecode": "00:00-00:05", "description": "画面快速切换，先展示暖水壶水开自动断电，再抛出疑问“为什么充电线不能”，搭配普通充电线特写", "prompt": "快切镜头，(00:00-00:02)红色电热水壶特写，底座指示灯熄灭；(00:02-00:05)黑色Type-C充电线特写，白色加粗文字“不能？”叠加画面中心，冷调光线，高对比度，动态剪辑，4k画质，冲击力强", "first_frame_prompt": "特写构图，画面左侧是红色电热水壶，底座橙色指示灯亮起，背景是蓝色墙面模糊人影；光线偏暖，电热水壶金属质感反光明显，画面比例16:9，4K超高清，照片级真实感，细节丰富" },
-        { "primary_tag": "场景", "secondary_tags": ["低密度", "行为演示+产品特写"], "timecode": "00:05-00:10", "description": "演示用户日常场景：手机充电到100%仍未拔线，随后展示手机电池健康仅80%，传递过充痛点", "prompt": "中景镜头，黑色手机放置在支架上充电，电量从54%跳转到100%；随后特写手机屏幕显示“电池健康 最大容量80%”，暖调室内光线，静态镜头，真实感摄影，4k画质，细节清晰", "first_frame_prompt": "中景构图，画面中心是黑色手机支架，手机屏幕显示电量54%正在充电，背景是浅紫色墙面与桌面台灯；光线柔和，来自右侧的散射光，手机屏幕亮度适中，画面比例16:9，4K超高清，照片级真实感，细节丰富" },
-        { "primary_tag": "卖点", "secondary_tags": ["中密度", "产品特写+行为演示"], "timecode": "00:10-00:17", "description": "展示黑色编织数据线，插入手机后蓝色呼吸灯亮起；演示快充效果，手机电量快速从13%上升，文案说明支持120W闪充、适配华为苹果", "prompt": "特写镜头，黑色编织数据线插入黑色手机接口，蓝色呼吸灯亮起；随后快切手机充电界面，电量从13%快速跳转到76%，暖调桌面光线，动态镜头，科技感氛围，4k画质，细节丰富", "first_frame_prompt": "特写构图，画面中心是黑色Type-C数据线接口插入手机，蓝色呼吸灯亮起4颗；手机放置在浅木色桌面，背景有白色台灯与宇航员摆件；光线明亮，呼吸灯蓝色光清晰，画面比例16:9，4K超高清，照片级真实感，细节丰富" },
-        { "primary_tag": "卖点", "secondary_tags": ["中密度", "场景空镜+行为演示"], "timecode": "00:17-00:22", "description": "展示1.8米数据线的长度优势：床上用户伸手接手机，沙发上用户以不同姿势边充边玩，文案说明“任你什么姿势都能边充边玩不受限”", "prompt": "多场景镜头切换，(00:17-00:19)卧室场景，用户坐在床上伸手接充电的手机；(00:19-00:22)沙发场景，用户躺着、半躺着用手机充电，暖调室内光线，动态镜头，生活化氛围，4k画质，细节丰富", "first_frame_prompt": "中景构图，画面中心是用户坐在酒店床上伸手接充电的手机，数据线长度覆盖床与镜头的距离；背景是灰色床头板与暖黄台灯，光线柔和，画面比例16:9，4K超高清，照片级真实感，细节丰富" },
-        { "primary_tag": "证明", "secondary_tags": ["中密度", "产品特写+对比镜头"], "timecode": "00:22-00:29", "description": "特写数据线呼吸灯，充电时亮起4颗蓝色灯，充满后灯熄灭；通过动画演示智能功能：满电断电，2小时后自动检测电量并补电", "prompt": "特写+动画结合镜头，(00:22-00:24)数据线接口蓝色呼吸灯从4颗逐渐熄灭；(00:24-00:29)动画演示：手机满电100%后断电，2小时后电量降至98%，数据线自动重启充电，冷调科技感光线，动态动画，4k画质，细节清晰", "first_frame_prompt": "特写构图，画面中心是黑色数据线接口，4颗蓝色呼吸灯亮起；背景是浅木色桌面，光线明亮，呼吸灯蓝色光均匀，画面比例16:9，4K超高清，照片级真实感，细节丰富" },
-        { "primary_tag": "场景", "secondary_tags": ["低密度", "行为演示+场景空镜"], "timecode": "00:29-00:32", "description": "展示不同用户场景：咖啡厅用户边充边玩，卧室用户放心休息，传递“不再有过充焦虑，安全感拉满”的感受", "prompt": "多场景镜头切换，(00:29-00:30)咖啡厅场景，用户手持手机边充边玩；(00:30-00:32)卧室场景，手机放在床头柜充电，背景用户伸懒腰起床，暖调自然光，静态镜头，安心氛围，4k画质，细节丰富", "first_frame_prompt": "中景构图，画面中心是用户在咖啡厅手持手机，数据线连接手机；背景是白色瓷砖桌面与模糊的咖啡厅环境，光线明亮柔和，画面比例16:9，4K超高清，照片级真实感，细节丰富" },
-        { "primary_tag": "转化", "secondary_tags": ["中密度", "产品特写+人脸直出"], "timecode": "00:32-00:35.5", "description": "展示数据线特写，竖大拇指手势传递认可；文案说明“3C大厂迅即出品”“多备几条也不心疼”，引导用户购买", "prompt": "特写+中景镜头，(00:32-00:33)黑色编织数据线特写，用户竖大拇指手势；(00:33-00:35.5)画面叠加白色文字“迅即XUNJI 出品”，暖调光线，静态镜头，信任氛围，4k画质，细节清晰", "first_frame_prompt": "中景构图，画面中心是用户手持黑色编织数据线，另一只手竖大拇指；背景是蓝色墙面，光线明亮，用户手势清晰，画面比例16:9，4K超高清，照片级真实感，细节丰富" }
-      ]},
-      { "product_name": "脱毛膏", "segments": [
-        { "primary_tag": "钩子", "secondary_tags": ["高密度", "行为演示+产品特写"], "timecode": "00:00-00:06", "description": "以“蜂蜜也能用来脱毛？”的疑问开场，展示刀头淋蜂蜜，快速呈现新款紫色脱毛刀遇水起泡、高效无痛脱毛的核心特性，吸引用户停留", "prompt": "特写镜头，一只手拿着紫色手柄的脱毛刀，蜂蜜从上方淋在刀头，刀头遇水后产生绵密泡沫，背景为浴室洗手台，明亮自然光，真实感摄影，4k画质，细节丰富", "first_frame_prompt": "特写构图，刀头居中，蜂蜜从上方淋在白色刀头，手柄为紫色，背景是灰色洗手台，光线明亮，蜂蜜呈琥珀色，刀头细节清晰，4K超高清，照片级真实感，细节丰富" },
-        { "primary_tag": "卖点", "secondary_tags": ["中密度", "人脸直出+对比镜头"], "timecode": "00:06-00:21", "description": "主播口播介绍线上专属紫色款，清洁时拆刀头水冲即净；对比线下超市69元1刀头，线上59.9元含1手柄2刀头；说明添加天然蜂蜜成分，温和不刺激", "prompt": "中景镜头，主播手持紫色脱毛刀，身后画面分屏展示线下超市价格标签与线上订单页面，主播表情生动，室内柔和灯光，生活化场景，4k画质", "first_frame_prompt": "中景构图，主播位于画面右侧，手持紫色脱毛刀，左侧分屏展示线下超市69元的价格标签，背景为室内沙发，光线柔和，主播表情自然，4K超高清，照片级真实感，细节丰富" },
-        { "primary_tag": "证明", "secondary_tags": ["高密度", "行为演示+对比镜头+特写"], "timecode": "00:21-00:38", "description": "演示刀头上下左右伸缩贴合皮肤；用鸡蛋模拟皮肤，展示刀头防护网设计不刮伤皮肤；刀头遇水起绵密泡沫；展示胳膊、腋下、腿的大面积脱毛效果，验证产品贴合性、安全性、高效性", "prompt": "多镜头切换：特写刀头伸缩结构，特写刀头刮鸡蛋（鸡蛋无破损），中景演示刀头在手上起泡，分屏展示胳膊、腋下、腿脱毛前后对比，明亮自然光，真实感摄影，4k画质", "first_frame_prompt": "特写构图，刀头居中，手指按压刀头展示伸缩结构，刀头细节清晰，背景为灰色台面，光线明亮，4K超高清，照片级真实感，细节丰富" },
-        { "primary_tag": "场景", "secondary_tags": ["低密度", "行为演示+场景空镜"], "timecode": "00:38-00:48", "description": "演示使用后扣好刀头倒放控水，模拟日常使用后的收纳场景，展示产品使用后的卫生收纳方式", "prompt": "中景镜头，手拿着扣好刀头的紫色脱毛刀，倒放在洗手台控水，背景为浴室场景，明亮自然光，生活化场景，4k画质", "first_frame_prompt": "中景构图，脱毛刀倒放在洗手台，刀头朝下控水，背景为灰色洗手台，光线明亮，4K超高清，照片级真实感，细节丰富" },
-        { "primary_tag": "转化", "secondary_tags": ["中密度", "人脸直出+场景空镜"], "timecode": "00:48-00:56", "description": "主播手持脱毛刀号召用户趁着旺季前囤货，强调产品早晚都能用，天热露胳膊露腿需求大，促使用户立即下单", "prompt": "中景镜头，主播手持两支紫色脱毛刀，身后画面展示穿吊带、短裤的皮肤光滑的身体，主播表情急切，室内柔和灯光，4k画质", "first_frame_prompt": "中景构图，主播位于画面左侧，手持两支紫色脱毛刀，右侧展示穿白色吊带的光滑胳膊，背景为室内沙发，光线柔和，主播表情生动，4K超高清，照片级真实感，细节丰富" }
-      ]}
-    ];
-    
-    // 转换素材库数据为应用所需的VideoScriptSegment格式
-    const convertToAsset = (segment: any, index: number, productIndex: number): VideoScriptSegment => {
-      // 解析timecode为秒数格式，如"0-4s"
-      const parseTimecode = (timecode: string): string => {
-        const [start, end] = timecode.split('-');
-        const parseTime = (time: string): number => {
-          const [minutes, seconds] = time.split(':').map(Number);
-          return minutes * 60 + seconds;
-        };
-        return `${parseTime(start)}-${parseTime(end)}s`;
-      };
-      
-      return {
-        id: `asset-${productIndex}-${index}`,
-        time: parseTimecode(segment.timecode),
-        main_tag: segment.primary_tag,
-        info_density: segment.secondary_tags[0],
-        l2_visual: segment.secondary_tags[1],
-        visual_prompt: segment.prompt,
-        voiceover_text: segment.description,
-        retention_strategy: segment.description,
-        thumbnail: `https://ui-avatars.com/api/?name=${encodeURIComponent(segment.primary_tag || 'Asset')}&background=4338ca&color=fff`,
-        sourceTitle: segment.product_name || '',
-        niche: '' // 可以根据需要从product_name推导
-      };
-    };
-    
-    // 转换所有素材
-    const initialAssets: VideoScriptSegment[] = rawAssets.flatMap((product, productIndex) => 
-      product.segments.map((segment: any, index: number) => 
-        convertToAsset({ ...segment, product_name: product.product_name }, index, productIndex)
-      )
-    );
-    
-    // 初始历史数据（保持不变）
     const initialHistory: DeconstructedVideo[] = [
       {
         id: 'h-1',
         title: '某爆款美妆精华测评 - 100w+点赞',
         niche: '美妆/个护',
-        formula_name: '痛点对比式',
-        structure: '糟糕现状 -> 产品切入 -> 惊人反差',
+        formula_name: '钩子对比式',
+        structure: '钩子 -> 卖点 -> 证明',
         pace: '1.2s/镜头',
         core_elements: '大字幕, 极速卡点',
         createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
         segments: [
-          { id: 's1', time: '0-2s', main_tag: '痛点', info_density: '高', l2_visual: '糟糕现状', visual_prompt: 'Close up skin problems', voiceover_text: '你以为你的脸真的洗干净了吗？', retention_strategy: 'Fear of missing out', thumbnail: 'https://ui-avatars.com/api/?name=Skincare&background=4338ca&color=fff' },
-          { id: 's2', time: '2-5s', main_tag: '产品', info_density: '中', l2_visual: '产品特写', visual_prompt: 'Product aesthetic shot', voiceover_text: '其实你需要的是这款氨基酸洁面', retention_strategy: 'Visual satisfaction', thumbnail: 'https://ui-avatars.com/api/?name=Product&background=4338ca&color=fff' }
+          { id: 's1', time: '0-2s', main_tag: '钩子', info_density: '高', l2_visual: '对比镜头', visual_prompt: 'Close up skin problems', voiceover_text: '你以为你的脸真的洗干净了吗？', retention_strategy: 'Fear of missing out', thumbnail: 'https://ui-avatars.com/api/?name=Skincare&background=4338ca&color=fff' },
+          { id: 's2', time: '2-5s', main_tag: '卖点', info_density: '中', l2_visual: '产品特写', visual_prompt: 'Product aesthetic shot', voiceover_text: '其实你需要的是这款氨基酸洁面', retention_strategy: 'Visual satisfaction', thumbnail: 'https://ui-avatars.com/api/?name=Product&background=4338ca&color=fff' }
         ]
       },
       {
@@ -169,7 +93,7 @@ export default function App() {
         title: '智能家居好物分享 - 50w+点赞',
         niche: '家居/数码',
         formula_name: '生活场景式',
-        structure: '懒人需求 -> 自动操作 -> 优雅生活',
+        structure: '钩子 -> 场景 -> 卖点',
         pace: '2.5s/镜头',
         core_elements: '柔和光影, 暖色调',
         createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
@@ -179,6 +103,8 @@ export default function App() {
       }
     ];
 
+    const initialAssets: VideoScriptSegment[] = initialHistory.flatMap(h => h.segments.map(s => ({ ...s, sourceTitle: h.title, niche: h.niche })));
+
     const initial: AppState = {
       currentView: ViewType.HOME,
       status: ProjectStatus.IDLE,
@@ -187,7 +113,7 @@ export default function App() {
       genCount: 3,
       results: [],
       history: initialHistory,
-      assets: initialAssets.filter(a => a.main_tag), // Filter out assets without tags
+      assets: initialAssets.filter(a => a.main_tag && a.main_tag !== '痛点' && a.main_tag !== '产品'), // Filter out assets without tags and exclude "痛点" and "产品"
       // 新增：视频复刻相关状态
       replicationStatus: VideoGenerationStatus.IDLE,
       currentReplication: null,
@@ -195,24 +121,37 @@ export default function App() {
       imageConfig: {
         size: '9:16',
         resolution: '2K'
-      }
+      },
+      // 新增：导航历史栈
+      navigationHistory: []
     };
 
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         
-        // 直接使用保存的assets，如果没有则使用initialAssets
-        // 不再从history重新生成assets，确保素材库数据正确显示
-        const restoredAssets = parsed.assets || initialAssets;
-        const restoredHistory = parsed.history || initialHistory;
+        // 优先使用保存的assets，如果没有则从history重新生成
+        let restoredAssets = parsed.assets || [];
+        
+        // 如果没有保存的assets，从history重新生成
+        if (!restoredAssets || restoredAssets.length === 0) {
+          const restoredHistory = parsed.history || initialHistory;
+          restoredAssets = restoredHistory.flatMap((h: DeconstructedVideo) => 
+            h.segments.map(s => ({ ...s, sourceTitle: h.title, niche: h.niche }))
+          );
+        }
+        
+        // 过滤掉"痛点"和"产品"标签
+        restoredAssets = restoredAssets.filter((a: VideoScriptSegment) => 
+          a.main_tag && a.main_tag !== '痛点' && a.main_tag !== '产品'
+        );
         
         // 强制重置 productInfo.sellingPoints 为空，避免加载旧的原视频特征
         return { 
           ...initial, 
           ...parsed,
-          history: restoredHistory,
-          assets: restoredAssets.filter(a => a.main_tag), // 使用保存的assets或initialAssets
+          history: parsed.history || initialHistory,
+          assets: restoredAssets, // 使用保存的或重新生成的 assets
           productInfo: { 
             name: '', 
             sellingPoints: [''], 
@@ -234,12 +173,16 @@ export default function App() {
           ...h,
           segments: h.segments.map(s => ({
             ...s,
-            thumbnail: undefined // 不存储缩略图 URLs
+            // 只删除Blob URLs，保留HTTP URLs（如ui-avatars和服务器缩略图）
+            thumbnail: s.thumbnail?.startsWith('blob:') ? undefined : s.thumbnail
           }))
         })),
         assets: state.assets.map(a => ({
           ...a,
-          thumbnail: undefined // 不存储缩略图 URLs
+          // 只删除Blob URLs，保留HTTP URLs（如ui-avatars和服务器缩略图）
+          thumbnail: a.thumbnail?.startsWith('blob:') ? undefined : a.thumbnail,
+          // 保留videoUrl，因为它是服务器URL
+          videoUrl: a.videoUrl
         })),
         productInfo: {
           name: state.productInfo.name,
@@ -262,6 +205,7 @@ export default function App() {
     }
   }, [state.history, state.assets, state.productInfo, state.genCount, state.imageConfig]);
 
+  // 清理重复ID
   useEffect(() => {
     setState(s => {
       const seen = new Map<string, number>();
@@ -274,6 +218,101 @@ export default function App() {
       return { ...s, assets };
     });
   }, []);
+
+  // 清理现有的组合标签
+  useEffect(() => {
+    const validTags = ['钩子', '卖点', '证明', '转化', '场景'];
+    
+    // 标签映射：英文 -> 中文
+    const tagMapping: Record<string, string> = {
+      'hook': '钩子',
+      'selling_point': '卖点',
+      'proof': '证明',
+      'cta': '转化',
+      'scene': '场景',
+      '钩子': '钩子',
+      '卖点': '卖点',
+      '证明': '证明',
+      '转化': '转化',
+      '场景': '场景'
+    };
+    
+    // 标签规范化函数
+    const normalizeTag = (tag: string): string => {
+      if (!tag) return '';
+      
+      let normalized = tag.trim().toLowerCase();
+      
+      // 如果包含"+"或"、"，只保留第一个标签
+      if (normalized.includes('+')) {
+        normalized = normalized.split('+')[0].trim();
+      }
+      if (normalized.includes('、')) {
+        normalized = normalized.split('、')[0].trim();
+      }
+      
+      // 映射到中文标签
+      const mapped = tagMapping[normalized] || tagMapping[tag.trim()] || tag.trim();
+      
+      // 验证是否为有效标签
+      return validTags.includes(mapped) ? mapped : '';
+    };
+    
+    setState(prev => {
+      // 清理素材库中的组合标签
+      const cleanedAssets = prev.assets
+        .map(asset => {
+          const originalTag = asset.main_tag || '';
+          const normalizedTag = normalizeTag(originalTag);
+          
+          if (normalizedTag !== originalTag && originalTag) {
+            console.log(`规范化素材标签: "${originalTag}" -> "${normalizedTag}"`);
+          }
+          
+          return {
+            ...asset,
+            main_tag: normalizedTag
+          };
+        })
+        .filter(asset => {
+          // 过滤掉无效标签
+          const isValid = asset.main_tag && validTags.includes(asset.main_tag);
+          if (!isValid && asset.main_tag) {
+            console.log(`移除无效标签素材: "${asset.main_tag}"`);
+          }
+          return isValid;
+        });
+
+      // 清理历史记录中的组合标签
+      const cleanedHistory = prev.history.map(video => ({
+        ...video,
+        segments: video.segments
+          .map(segment => {
+            const originalTag = segment.main_tag || '';
+            const normalizedTag = normalizeTag(originalTag);
+            
+            return {
+              ...segment,
+              main_tag: normalizedTag
+            };
+          })
+          .filter(segment => segment.main_tag && validTags.includes(segment.main_tag))
+      }));
+
+      // 只在有变化时更新状态
+      if (cleanedAssets.length !== prev.assets.length || 
+          cleanedAssets.some((a, i) => a.main_tag !== prev.assets[i]?.main_tag)) {
+        console.log(`已清理 ${prev.assets.length - cleanedAssets.length} 个无效标签素材`);
+        return {
+          ...prev,
+          assets: cleanedAssets,
+          history: cleanedHistory
+        };
+      }
+      
+      return prev;
+    });
+  }, []); // 只在组件挂载时执行一次
   // Cleanup preview URL
   useEffect(() => {
     const currentUrl = previewUrl;
@@ -284,8 +323,39 @@ export default function App() {
     };
   }, [previewUrl]);
 
-  // Navigation logic
-  const navigate = (view: ViewType) => setState(prev => ({ ...prev, currentView: view }));
+  // Navigation logic with history tracking
+  const navigate = (view: ViewType, addToHistory: boolean = true) => {
+    setState(prev => {
+      const newHistory = addToHistory && prev.currentView !== view
+        ? [...prev.navigationHistory, prev.currentView]
+        : prev.navigationHistory;
+      
+      return {
+        ...prev,
+        currentView: view,
+        navigationHistory: newHistory
+      };
+    });
+  };
+
+  // Navigate back to previous view
+  const navigateBack = () => {
+    setState(prev => {
+      if (prev.navigationHistory.length === 0) {
+        // 如果没有历史记录，返回首页
+        return { ...prev, currentView: ViewType.HOME };
+      }
+      
+      const newHistory = [...prev.navigationHistory];
+      const previousView = newHistory.pop()!;
+      
+      return {
+        ...prev,
+        currentView: previousView,
+        navigationHistory: newHistory
+      };
+    });
+  };
 
   // Actions
   const onUploadStart = (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
@@ -403,28 +473,179 @@ export default function App() {
     setState(prev => ({ ...prev, status: ProjectStatus.ANALYZING }));
     
     try {
+        // 保存原始视频文件用于后续导出剪映工程
+        setOriginalVideoFile(selectedFile);
+        
         // 注意：sellingPoints 是从原视频分析中提取的特征描述，不是新商品卖点
         // 因此不应该自动填充到 productInfo.sellingPoints
         const { analysis } = await analyzeVideoReal(selectedFile, '', productDesc, srtContent);
         
+        // 规范化分镜标签
+        const validTags = ['钩子', '卖点', '证明', '转化', '场景'];
+        const tagMapping: Record<string, string> = {
+          'hook': '钩子',
+          'selling_point': '卖点',
+          'proof': '证明',
+          'cta': '转化',
+          'scene': '场景',
+          '钩子': '钩子',
+          '卖点': '卖点',
+          '证明': '证明',
+          '转化': '转化',
+          '场景': '场景'
+        };
+        
+        const normalizeTag = (tag: string): string => {
+          if (!tag) return '';
+          let normalized = tag.trim().toLowerCase();
+          
+          // 移除组合标签
+          if (normalized.includes('+')) normalized = normalized.split('+')[0].trim();
+          if (normalized.includes('、')) normalized = normalized.split('、')[0].trim();
+          if (normalized.includes('和')) normalized = normalized.split('和')[0].trim();
+          
+          // 映射到中文标签
+          const mapped = tagMapping[normalized] || tagMapping[tag.trim()] || tag.trim();
+          return validTags.includes(mapped) ? mapped : '';
+        };
+        
         const normalizedSegments = (analysis.segments || [])
-          .map((s, i) => ({
-            ...s,
-            id: `${analysis.id || 'analysis'}-${s.id || 'seg'}-${i}-${Date.now()}`,
-            main_tag: (s.main_tag || '').trim()
-          }))
-          .filter(s => s.main_tag);
+          .map((s, i) => {
+            const normalizedTag = normalizeTag(s.main_tag || '');
+            
+            if (normalizedTag !== s.main_tag && s.main_tag) {
+              console.warn(`规范化标签 "${s.main_tag}" -> "${normalizedTag}"`);
+            }
+            
+            return {
+              ...s,
+              id: `${analysis.id || 'analysis'}-${s.id || 'seg'}-${i}-${Date.now()}`,
+              main_tag: normalizedTag
+            };
+          })
+          .filter(s => {
+            // 过滤掉无效标签
+            const isValid = s.main_tag && validTags.includes(s.main_tag);
+            if (!isValid && s.main_tag) {
+              console.warn(`过滤无效标签: "${s.main_tag}"`);
+            }
+            return isValid;
+          });
 
-        setState(prev => ({ 
-          ...prev, 
-          status: ProjectStatus.IDLE, 
-          analysis: { ...analysis, segments: normalizedSegments }, 
-          // 不自动填充 sellingPoints，保持为空让用户手动填写
-          // sellingPoints 从视频分析中提取的是原视频特征，不是新商品卖点
-          currentView: ViewType.ANALYSIS,
-          history: [analysis, ...prev.history],
-          assets: [...normalizedSegments, ...prev.assets]
-        }));
+        // 步骤 2: 分割视频并存储到素材库
+        pushToast('info', '正在分割视频并保存到素材库...');
+        
+        try {
+          // 调用视频分割服务
+          const formData = new FormData();
+          formData.append('video', selectedFile);
+          formData.append('analysis', JSON.stringify({
+            ...analysis,
+            segments: normalizedSegments
+          }));
+
+          const splitResponse = await fetch(API_URLS.VIDEO_SPLITTER_API, {
+            method: 'POST',
+            body: formData
+          });
+
+          if (splitResponse.ok) {
+            const splitResult = await splitResponse.json();
+            
+            if (splitResult.success && splitResult.segments) {
+              // 将分割后的视频存储到服务器
+              const { downloadAndStoreVideo } = await import('./services/videoStorageService');
+              const { smartCleanTag } = await import('./services/tagValidationService');
+              const assetsToAdd: VideoScriptSegment[] = [];
+              
+              for (let i = 0; i < splitResult.segments.length; i++) {
+                const splitSegment = splitResult.segments[i];
+                const segment = normalizedSegments[i];
+                
+                if (segment && splitSegment.url) {
+                  // 验证标签
+                  const cleanedTag = smartCleanTag(segment.main_tag);
+                  
+                  if (!cleanedTag) {
+                    console.warn(`⚠️ 跳过无效标签的分镜: "${segment.main_tag}" (${segment.id})`);
+                    continue; // 跳过无效标签的分镜
+                  }
+                  
+                  try {
+                    // 下载并存储分割后的视频
+                    const videoUrl = `${API_URLS.VIDEO_SPLITTER}${splitSegment.url}`;
+                    const storedVideo = await downloadAndStoreVideo(videoUrl, {
+                      segmentId: segment.id,
+                      mainTag: cleanedTag, // 使用清理后的标签
+                      voiceoverText: segment.voiceover_text,
+                      visualPrompt: segment.visual_prompt
+                    });
+                    
+                    // 更新segment的视频URL和缩略图
+                    segment.videoUrl = storedVideo.url;
+                    segment.thumbnail = storedVideo.thumbnail || segment.thumbnail;
+                    segment.main_tag = cleanedTag; // 更新为清理后的标签
+                    
+                    // 创建素材库条目
+                    assetsToAdd.push({
+                      ...segment,
+                      main_tag: cleanedTag, // 确保使用清理后的标签
+                      videoUrl: storedVideo.url,
+                      thumbnail: storedVideo.thumbnail || segment.thumbnail,
+                      sourceTitle: analysis.title,
+                      niche: analysis.niche
+                    });
+                    
+                    console.log(`✅ 视频片段已存储到素材库: ${storedVideo.filename} (标签: ${cleanedTag})`);
+                  } catch (error) {
+                    console.error(`存储视频片段失败 (${segment.id}):`, error);
+                  }
+                }
+              }
+              
+              // 将新素材添加到素材库
+              if (assetsToAdd.length > 0) {
+                setState(prev => ({ 
+                  ...prev, 
+                  status: ProjectStatus.IDLE, 
+                  analysis: { ...analysis, segments: normalizedSegments }, 
+                  currentView: ViewType.ANALYSIS,
+                  history: [analysis, ...prev.history],
+                  assets: [...assetsToAdd, ...prev.assets]
+                }));
+                
+                pushToast('success', `已添加 ${assetsToAdd.length} 个视频片段到素材库`);
+              } else {
+                // 如果存储失败，仍然显示分析结果
+                setState(prev => ({ 
+                  ...prev, 
+                  status: ProjectStatus.IDLE, 
+                  analysis: { ...analysis, segments: normalizedSegments }, 
+                  currentView: ViewType.ANALYSIS,
+                  history: [analysis, ...prev.history],
+                  assets: [...normalizedSegments, ...prev.assets]
+                }));
+              }
+            } else {
+              throw new Error('视频分割失败');
+            }
+          } else {
+            throw new Error(`视频分割服务错误: ${splitResponse.status}`);
+          }
+        } catch (splitError) {
+          console.error('视频分割或存储失败:', splitError);
+          pushToast('error', '视频分割失败，但分析结果已保存');
+          
+          // 即使分割失败，也显示分析结果
+          setState(prev => ({ 
+            ...prev, 
+            status: ProjectStatus.IDLE, 
+            analysis: { ...analysis, segments: normalizedSegments }, 
+            currentView: ViewType.ANALYSIS,
+            history: [analysis, ...prev.history],
+            assets: [...normalizedSegments, ...prev.assets]
+          }));
+        }
     } catch (error) {
         console.error('Analysis failed:', error);
         pushToast('error', `分析失败：${formatErrorMessage(error)}`);
@@ -436,44 +657,209 @@ export default function App() {
     try {
       pushToast('info', '正在生成剪映工程文件...');
 
-      // 检查是否有复刻的分镜和视频
-      if (!state.currentReplication || !state.currentReplication.segments || state.currentReplication.segments.length === 0) {
-        pushToast('error', '请先完成视频复刻流程');
+      // 检查剪映服务是否可用
+      const { checkJianyingServiceAvailable } = await import('./services/jianyingExportService');
+      const isServiceAvailable = await checkJianyingServiceAvailable();
+      
+      if (!isServiceAvailable) {
+        pushToast('error', '剪映导出服务不可用，请检查服务是否启动');
         return;
       }
 
-      // 收集所有视频 URLs
-      const videoUrls: string[] = [];
-      for (const segment of state.currentReplication.segments) {
-        if (segment.generated_videos && segment.generated_videos.length > 0) {
-          videoUrls.push(...segment.generated_videos.filter(v => v));
+      // 方案 0：如果在视频合成完成页面，使用合成后的完整视频
+      if (state.currentView === ViewType.VIDEO_COMPOSITION && compositionStatus === 'completed' && composedVideos.length > 0) {
+        const completedVideos = composedVideos.filter(v => v.outputUrl && v.status === 'completed');
+        
+        if (completedVideos.length > 0) {
+          // 动态导入剪映导出服务
+          const { generateAndDownloadJianyingDraft } = await import('./services/jianyingExportService');
+
+          // 使用合成后的完整视频URLs
+          const videoUrls = completedVideos.map(v => v.outputUrl);
+          
+          // 将复刻数据转换为分镜格式（用于工程结构）
+          const segments = state.currentReplication!.segments.map((seg, idx) => ({
+            id: `replication-${idx}`,
+            time: seg.time || `${idx * 5}-${(idx + 1) * 5}s`,
+            narrative_type: seg.narrative_type,
+            script_content: seg.script_content || '',
+            voiceover_text: seg.voiceover_text || '',
+            frame_prompt: seg.frame_prompt || '',
+            video_prompt: seg.video_prompt || ''
+          }));
+
+          // 生成并下载剪映工程文件
+          await generateAndDownloadJianyingDraft(
+            segments as any,
+            videoUrls,
+            state.productInfo.name || video.title || '爆款复刻视频',
+            {
+              width: 1920,
+              height: 1080,
+              fps: 30,
+              draftPath: jianyingDraftPath || undefined // 传递用户输入的草稿路径
+            }
+          );
+
+          pushToast('success', `已导出《${state.productInfo.name || video.title || '爆款复刻视频'}》剪映工程文件（包含${completedVideos.length}个完整视频）`);
+          return;
         }
       }
 
-      if (videoUrls.length === 0) {
-        pushToast('error', '没有找到生成的视频，请先完成视频生成');
+      // 方案 1：如果有复刻数据和分镜视频，使用分镜视频导出
+      if (state.currentReplication && state.currentReplication.segments && state.currentReplication.segments.length > 0) {
+        // 收集所有分镜视频 URLs
+        const videoUrls: string[] = [];
+        for (const segment of state.currentReplication.segments) {
+          if (segment.generated_videos && segment.generated_videos.length > 0) {
+            videoUrls.push(...segment.generated_videos.filter(v => v));
+          }
+        }
+
+        if (videoUrls.length > 0) {
+          // 动态导入剪映导出服务
+          const { generateAndDownloadJianyingDraft } = await import('./services/jianyingExportService');
+
+          // 生成并下载剪映工程文件
+          await generateAndDownloadJianyingDraft(
+            state.currentReplication.segments,
+            videoUrls,
+            state.productInfo.name || video.title,
+            {
+              width: 1920,
+              height: 1080,
+              fps: 30,
+              draftPath: jianyingDraftPath || undefined // 传递用户输入的草稿路径
+            }
+          );
+
+          pushToast('success', `已导出《${state.productInfo.name || video.title}》剪映工程文件`);
+          return;
+        }
+      }
+
+      // 方案 2：从分析数据导出，需要先分割原视频
+      if (video && video.segments && video.segments.length > 0) {
+        if (!originalVideoFile) {
+          pushToast('error', '原视频文件已丢失，请重新上传视频并分析');
+          return;
+        }
+        
+        console.log('从分析数据导出剪映工程，先分割视频...');
+        
+        pushToast('info', '正在分割原视频...');
+        
+        // 分割原视频
+        const videoSegments = await splitVideoByAnalysis(originalVideoFile, video);
+        
+        if (videoSegments.length > 0) {
+          // 构建视频 URL 列表
+          const videoUrls = videoSegments.map(seg => `${API_URLS.VIDEO_SPLITTER}${seg.url}`);
+          
+          // 动态导入剪映导出服务
+          const { generateAndDownloadJianyingDraft } = await import('./services/jianyingExportService');
+
+          // 将分析数据转换为分镜格式
+          const segments = video.segments.map((seg, idx) => ({
+            id: `analysis-${idx}`,
+            time: seg.time,
+            narrative_type: seg.main_tag as 'hook' | 'selling_point' | 'proof' | 'cta',
+            script_content: seg.visual_prompt || '',
+            voiceover_text: seg.voiceover_text || '',
+            frame_prompt: seg.visual_prompt || '',
+            video_prompt: seg.visual_prompt || ''
+          }));
+
+          // 使用分析视频的标题作为工程名称
+          await generateAndDownloadJianyingDraft(
+            segments as any,
+            videoUrls,
+            video.title,
+            {
+              width: 1920,
+              height: 1080,
+              fps: 30,
+              draftPath: jianyingDraftPath || undefined // 传递用户输入的草稿路径
+            }
+          );
+
+          pushToast('success', `已导出《${video.title}》剪映工程文件`);
+          return;
+        } else {
+          pushToast('error', '视频分割失败，无法导出剪映工程');
+          return;
+        }
+      }
+
+      // 方案 3：如果没有原视频文件，只导出空的工程结构
+      if (video && video.segments && video.segments.length > 0) {
+        console.log('导出空的剪映工程结构...');
+        
+        // 动态导入剪映导出服务
+        const { generateAndDownloadJianyingDraft } = await import('./services/jianyingExportService');
+
+        // 将分析数据转换为分镜格式
+        const segments = video.segments.map((seg, idx) => ({
+          id: `analysis-${idx}`,
+          time: seg.time,
+          narrative_type: seg.main_tag as 'hook' | 'selling_point' | 'proof' | 'cta',
+          script_content: seg.visual_prompt || '',
+          voiceover_text: seg.voiceover_text || '',
+          frame_prompt: seg.visual_prompt || '',
+          video_prompt: seg.visual_prompt || ''
+        }));
+
+        // 使用分析视频的标题作为工程名称
+        await generateAndDownloadJianyingDraft(
+          segments as any,
+          [], // 没有视频文件，传空数组
+          video.title,
+          {
+            width: 1920,
+            height: 1080,
+            fps: 30,
+            draftPath: jianyingDraftPath || undefined // 传递用户输入的草稿路径
+          }
+        );
+
+        pushToast('success', `已导出《${video.title}》剪映工程结构，请手动添加视频素材`);
         return;
       }
 
-      // 动态导入剪映导出服务
-      const { generateAndDownloadJianyingDraft } = await import('./services/jianyingExportService');
-
-      // 生成并下载剪映工程文件
-      await generateAndDownloadJianyingDraft(
-        state.currentReplication.segments,
-        videoUrls,
-        state.productInfo.name || video.title,
-        {
-          width: 1920,
-          height: 1080,
-          fps: 30
-        }
-      );
-
-      pushToast('success', `已导出《${state.productInfo.name || video.title}》剪映工程文件`);
+      pushToast('error', '无法导出：没有找到分析数据');
     } catch (error) {
       console.error('导出剪映工程文件失败:', error);
       pushToast('error', `导出失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    }
+  };
+
+  // 分割视频的函数
+  const splitVideoByAnalysis = async (videoFile: File, analysis: DeconstructedVideo): Promise<any[]> => {
+    try {
+      const formData = new FormData();
+      formData.append('video', videoFile);
+      formData.append('analysis', JSON.stringify(analysis));
+
+      const response = await fetch(API_URLS.VIDEO_SPLITTER_API, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`视频分割服务错误: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || '视频分割失败');
+      }
+
+      console.log('视频分割成功:', result.segments.length, '个分镜');
+      return result.segments;
+    } catch (error) {
+      console.error('视频分割失败:', error);
+      throw error;
     }
   };
 
@@ -517,11 +903,12 @@ export default function App() {
 
   const handleReplicate = (video: DeconstructedVideo) => {
     console.log('Replicating video:', video.title);
+    // 使用navigate函数，这样会自动记录当前页面到历史栈
+    navigate(ViewType.SETUP);
     setState(prev => ({ 
       ...prev, 
       analysis: video, 
-      productInfo: { name: '', sellingPoints: [''], images: [] },
-      currentView: ViewType.SETUP 
+      productInfo: { name: '', sellingPoints: [''], images: [] }
     }));
   };
 
@@ -533,15 +920,20 @@ export default function App() {
   };
 
   const handleGenerate = async () => {
-    // 跳转到脚本生成阶段
+    // 清空之前的合成视频状态，避免缓存问题
+    setComposedVideos([]);
+    setCompositionStatus('idle');
+    
+    // 设置状态为生成中，但不跳转页面
     setState(prev => ({ 
       ...prev, 
-      currentView: ViewType.SCRIPT_GENERATION,
+      status: ProjectStatus.GENERATING,
       replicationStatus: VideoGenerationStatus.GENERATING_SCRIPT
     }));
     
     try {
-      // 调用脚本重构服务
+      // 步骤 1: 生成脚本
+      pushToast('info', '正在生成脚本...');
       const { generateReplicatedScript } = await import('./services/videoReplicationService');
       
       if (!state.analysis) {
@@ -553,24 +945,314 @@ export default function App() {
         state.productInfo
       );
       
-      // 脚本生成完成后，停留在脚本查看页面，不自动跳转
       setState(prev => ({ 
         ...prev, 
         currentReplication: replicationResult,
-        replicationStatus: VideoGenerationStatus.IDLE,
-        currentView: ViewType.SCRIPT_GENERATION // 保持在脚本生成页面
+        replicationStatus: VideoGenerationStatus.GENERATING_FRAMES
       }));
       
       console.log('Script generation completed:', replicationResult);
-    } catch (error) {
-      console.error('Script generation failed:', error);
-      pushToast('error', `脚本生成失败：${formatErrorMessage(error)}`);
+      pushToast('success', '脚本生成完成');
+      
+      // 步骤 2: 生成首帧
+      pushToast('info', '正在生成首帧图片...');
+      const { generateAllFrames } = await import('./services/imageGenerationService');
+      
+      const frameMap = await generateAllFrames(
+        replicationResult.segments,
+        state.productInfo.images,
+        state.imageConfig,
+        state.genCount
+      );
+      
+      // 将生成的首帧 URLs 更新到 segments
+      const updatedSegments = replicationResult.segments.map(segment => ({
+        ...segment,
+        generated_frames: frameMap.get(segment.id) || []
+      }));
+      
+      const updatedReplication = {
+        ...replicationResult,
+        segments: updatedSegments
+      };
+      
       setState(prev => ({ 
         ...prev, 
+        currentReplication: updatedReplication,
+        replicationStatus: VideoGenerationStatus.GENERATING_VIDEOS
+      }));
+      
+      console.log('Frame generation completed');
+      pushToast('success', '首帧生成完成');
+      
+      // 步骤 3: 生成分镜视频
+      pushToast('info', '正在生成分镜视频...');
+      const { generateAllSegmentVideos } = await import('./services/videoGenerationService');
+      
+      const videoMap = await generateAllSegmentVideos(
+        updatedSegments,
+        {
+          resolution: '720p',
+          ratio: 'adaptive',
+          generateAudio: true, // 生成有声视频
+          watermark: false
+        }
+      );
+      
+      // 将生成的视频 URLs 更新到 segments
+      const finalSegments = updatedSegments.map(segment => ({
+        ...segment,
+        generated_videos: videoMap.get(segment.id) || []
+      }));
+      
+      // 步骤 3.5: 将生成的视频存储到 MinIO（用于合成，但不添加到素材库）
+      // 注意：爆款复刻的分镜视频不添加到素材库，只有爆款分析的视频才添加到素材库
+      pushToast('info', '正在保存视频到 MinIO...');
+      const { downloadAndStoreVideo } = await import('./services/videoStorageService');
+      
+      for (const segment of finalSegments) {
+        if (segment.generated_videos && segment.generated_videos.length > 0) {
+          // 存储所有版本的视频到 MinIO（用于合成）
+          for (let i = 0; i < segment.generated_videos.length; i++) {
+            const videoUrl = segment.generated_videos[i];
+            try {
+              const storedVideo = await downloadAndStoreVideo(videoUrl, {
+                segmentId: `${segment.id}_v${i + 1}`,
+                mainTag: segment.narrative_type,
+                voiceoverText: segment.voiceover_text,
+                visualPrompt: segment.video_prompt
+              });
+              
+              // 更新segment的视频URL为存储后的URL
+              segment.generated_videos[i] = storedVideo.url;
+              
+              console.log(`视频已存储到 MinIO: ${storedVideo.filename}`);
+            } catch (error) {
+              console.error(`存储视频失败 (${segment.id}_v${i + 1}):`, error);
+              // 存储失败不影响流程继续
+            }
+          }
+        }
+      }
+      
+      pushToast('success', '视频已保存到 MinIO，准备合成');
+      
+      const finalReplication = {
+        ...updatedReplication,
+        segments: finalSegments
+      };
+      
+      setState(prev => ({ 
+        ...prev, 
+        currentReplication: finalReplication,
+        replicationStatus: VideoGenerationStatus.COMPOSING_VIDEOS
+      }));
+      
+      console.log('Video generation completed');
+      pushToast('success', '分镜视频生成完成');
+      
+      // 步骤 4: 合成视频
+      pushToast('info', '正在合成最终视频...');
+      const { composeSingleVideo } = await import('./services/videoCompositionService');
+      
+      // 收集所有分镜视频
+      const allVideoUrls: string[][] = [];
+      for (let versionIdx = 0; versionIdx < state.genCount; versionIdx++) {
+        const versionVideos: string[] = [];
+        for (const segment of finalSegments) {
+          if (segment.generated_videos && segment.generated_videos[versionIdx]) {
+            versionVideos.push(segment.generated_videos[versionIdx]);
+          }
+        }
+        if (versionVideos.length > 0) {
+          allVideoUrls.push(versionVideos);
+        }
+      }
+      
+      // 初始化合成状态
+      const initialComposedVideos = allVideoUrls.map((_, idx) => ({
+        id: `composed-${idx + 1}`,
+        version: idx + 1,
+        outputUrl: '',
+        progress: 0,
+        status: 'pending' as const
+      }));
+      
+      setComposedVideos(initialComposedVideos);
+      setCompositionStatus('composing');
+      
+      // 并行合成所有版本
+      const compositionPromises = allVideoUrls.map(async (videoUrls, idx) => {
+        try {
+          const outputUrl = await composeSingleVideo(
+            videoUrls,
+            state.productInfo.name || '爆款复刻视频',
+            idx + 1,
+            (progress) => {
+              setComposedVideos(prev => prev.map((v, i) => 
+                i === idx ? { ...v, progress, status: 'processing' as const } : v
+              ));
+            }
+          );
+          
+          setComposedVideos(prev => prev.map((v, i) => 
+            i === idx ? { ...v, outputUrl, progress: 100, status: 'completed' as const } : v
+          ));
+          
+          return outputUrl;
+        } catch (error) {
+          console.error(`Composition failed for version ${idx + 1}:`, error);
+          setComposedVideos(prev => prev.map((v, i) => 
+            i === idx ? { ...v, status: 'failed' as const } : v
+          ));
+          throw error;
+        }
+      });
+      
+      await Promise.all(compositionPromises);
+      
+      setCompositionStatus('completed');
+      
+      setState(prev => ({ 
+        ...prev, 
+        status: ProjectStatus.IDLE,
+        replicationStatus: VideoGenerationStatus.COMPLETED,
+        currentView: ViewType.VIDEO_COMPOSITION // 跳转到最终结果页面
+      }));
+      
+      console.log('All videos composed successfully');
+      pushToast('success', '所有视频合成完成！');
+      
+    } catch (error) {
+      console.error('Generation failed:', error);
+      pushToast('error', `生成失败：${formatErrorMessage(error)}`);
+      setState(prev => ({ 
+        ...prev, 
+        status: ProjectStatus.IDLE,
         replicationStatus: VideoGenerationStatus.IDLE,
         currentView: ViewType.SETUP
       }));
+      setCompositionStatus('idle');
     }
+  };
+
+  // 定义品类列表和各品类的top3结构
+  const categories = [
+    { id: 'home-storage', name: '家居收纳', top3Structures: [
+      { id: 'home-1', structure: '钩子+卖点+证明+场景', description: '从钩子切入，展示产品卖点和证明，最后通过场景强化' },
+      { id: 'home-2', structure: '钩子+卖点+证明+卖点+场景', description: '钩子+多重卖点+证明+场景' },
+      { id: 'home-3', structure: '钩子+卖点+证明', description: '简洁的钩子+卖点+证明结构' }
+    ]},
+    { id: 'kitchen-tools', name: '厨房工具', top3Structures: [
+      { id: 'kitchen-1', structure: '钩子+卖点+证明', description: '直接展示厨房工具的使用效果' },
+      { id: 'kitchen-2', structure: '钩子+卖点+证明+场景+卖点+证明+场景+转化', description: '多重场景和证明的复杂结构' },
+      { id: 'kitchen-3', structure: '钩子+卖点+证明+卖点+卖点+证明+卖点+转化', description: '突出多个卖点的结构' }
+    ]},
+    { id: 'pet-supplies', name: '宠物用品', top3Structures: [
+      { id: 'pet-1', structure: '钩子+卖点+证明', description: '从宠物场景切入，展示产品效果' },
+      { id: 'pet-2', structure: '钩子+卖点+证明+卖点+证明+卖点', description: '多重卖点和证明' },
+      { id: 'pet-3', structure: '场景+卖点+证明+场景+卖点', description: '通过宠物场景展示产品' }
+    ]},
+    { id: 'beauty-tools', name: '美妆工具', top3Structures: [
+      { id: 'beauty-1', structure: '钩子+卖点+证明', description: '展示美妆工具的使用效果' },
+      { id: 'beauty-2', structure: '钩子+证明+卖点+证明+卖点+证明+卖点+证明+卖点+证明', description: '多重证明和卖点' },
+      { id: 'beauty-3', structure: '钩子+卖点+证明+卖点+证明+场景', description: '卖点+证明+场景的结合' }
+    ]},
+    { id: 'digital-accessories', name: '数码配件', top3Structures: [
+      { id: 'digital-1', structure: '钩子+场景+卖点+证明+场景+证明+场景+卖点', description: '通过场景展示数码配件' },
+      { id: 'digital-2', structure: '钩子+卖点+卖点+证明+卖点', description: '突出数码配件的功能卖点' },
+      { id: 'digital-3', structure: '钩子+卖点+证明+卖点+场景', description: '卖点+证明+场景的简洁结构' }
+    ]},
+    { id: 'personal-care-tools', name: '个护小工具', top3Structures: [
+      { id: 'personal-care-1', structure: '钩子+卖点+证明+场景+卖点+卖点+证明', description: '钩子+卖点+证明+场景+多重卖点+证明' },
+      { id: 'personal-care-2', structure: '钩子+卖点+证明+卖点+转化', description: '钩子+卖点+证明+卖点+转化' },
+      { id: 'personal-care-3', structure: '钩子+证明+场景+卖点+证明+卖点+场景', description: '钩子+证明+场景+卖点+证明+卖点+场景' }
+    ]},
+    { id: 'low-cost-creative', name: '低价创意好物', top3Structures: [
+      { id: 'low-cost-1', structure: '钩子+卖点', description: '简洁的钩子+卖点结构' },
+      { id: 'low-cost-2', structure: '钩子+场景+卖点+证明+卖点', description: '钩子+场景+卖点+证明+卖点' },
+      { id: 'low-cost-3', structure: '钩子+场景+钩子+卖点+证明+场景+证明', description: '钩子+场景+钩子+卖点+证明+场景+证明' }
+    ]},
+    { id: 'office-supplies', name: '办公好物', top3Structures: [
+      { id: 'office-1', structure: '钩子+卖点+证明+卖点', description: '钩子+卖点+证明+卖点' },
+      { id: 'office-2', structure: '钩子+卖点', description: '简洁的钩子+卖点结构' },
+      { id: 'office-3', structure: '钩子+场景+卖点+证明+卖点+证明', description: '钩子+场景+卖点+证明+卖点+证明' }
+    ]},
+    { id: 'home-appliances', name: '家用小电器', top3Structures: [
+      { id: 'appliances-1', structure: '钩子+卖点+证明', description: '直接展示家用小电器的使用效果' },
+      { id: 'appliances-2', structure: '钩子+场景+卖点+证明+场景', description: '通过场景展示家用小电器的功能' },
+      { id: 'appliances-3', structure: '钩子+卖点+证明+卖点+转化', description: '钩子+卖点+证明+卖点+转化' }
+    ]},
+    { id: 'outdoor-camping', name: '户外露营小物', top3Structures: [
+      { id: 'camping-1', structure: '钩子+场景+卖点+证明', description: '从户外场景切入，展示露营小物的功能' },
+      { id: 'camping-2', structure: '钩子+卖点+证明+场景+转化', description: '钩子+卖点+证明+场景+转化' },
+      { id: 'camping-3', structure: '场景+卖点+证明+卖点+证明', description: '场景+卖点+证明+卖点+证明' }
+    ]},
+    { id: 'skincare-products', name: '护肤功能品', top3Structures: [
+      { id: 'skincare-1', structure: '钩子+卖点+证明+场景', description: '展示护肤功能品的使用效果' },
+      { id: 'skincare-2', structure: '钩子+证明+卖点+证明+卖点', description: '多重证明和卖点的结合' },
+      { id: 'skincare-3', structure: '钩子+卖点+证明+卖点+证明+场景', description: '卖点+证明+场景的结合' }
+    ]},
+    { id: 'daily-necessities', name: '日用百货小工具', top3Structures: [
+      { id: 'daily-1', structure: '钩子+卖点+证明', description: '直接展示日用百货小工具的使用效果' },
+      { id: 'daily-2', structure: '钩子+场景+卖点+证明', description: '通过场景展示日用百货小工具的功能' },
+      { id: 'daily-3', structure: '钩子+卖点+证明+转化', description: '钩子+卖点+证明+转化' }
+    ]},
+    { id: 'basic-clothing', name: '服饰（基础款）', top3Structures: [
+      { id: 'clothing-1', structure: '钩子+卖点+证明', description: '展示基础款服饰的特点和优势' },
+      { id: 'clothing-2', structure: '钩子+场景+卖点+证明', description: '通过场景展示基础款服饰的搭配效果' },
+      { id: 'clothing-3', structure: '钩子+卖点+证明+场景+转化', description: '钩子+卖点+证明+场景+转化' }
+    ]},
+    { id: 'car-accessories', name: '汽车小用品', top3Structures: [
+      { id: 'car-1', structure: '钩子+卖点+证明', description: '直接展示汽车小用品的使用效果' },
+      { id: 'car-2', structure: '钩子+场景+卖点+证明+场景', description: '通过汽车场景展示产品功能' },
+      { id: 'car-3', structure: '钩子+卖点+证明+卖点+转化', description: '钩子+卖点+证明+卖点+转化' }
+    ]},
+    { id: 'cleaning-products', name: '清洁用品', top3Structures: [
+      { id: 'cleaning-1', structure: '钩子+卖点+证明', description: '直接展示清洁用品的清洁效果' },
+      { id: 'cleaning-2', structure: '钩子+场景+卖点+证明+场景', description: '通过场景展示清洁用品的使用效果' },
+      { id: 'cleaning-3', structure: '钩子+卖点+证明+卖点+证明', description: '多重卖点和证明的结合' }
+    ]}
+  ];
+
+  // 计算片段持续时间（秒）
+  const calculateDuration = (timeStr: string): number => {
+    // 处理格式如"0-4s"或"10-20s"的时间字符串
+    const match = timeStr.match(/^(\d+)-(\d+)s$/);
+    if (match) {
+      const start = Number(match[1]);
+      const end = Number(match[2]);
+      return end - start;
+    }
+    // 兼容原始格式如"00:00-00:04"
+    const [start, end] = timeStr.split('-');
+    const parseTime = (time: string): number => {
+      if (time.includes(':')) {
+        const [min, sec] = time.split(':').map(Number);
+        return min * 60 + sec;
+      }
+      return Number(time.replace('s', ''));
+    };
+    return parseTime(end) - parseTime(start);
+  };
+
+  // 从素材生成视频
+  const handleGenerateFromAssets = (asset: VideoScriptSegment) => {
+    // 创建一个临时的DeconstructedVideo对象
+    const tempVideo: DeconstructedVideo = {
+      id: 'temp-' + Date.now(),
+      title: asset.sourceTitle || '未命名素材',
+      niche: asset.niche || '通用',
+      formula_name: '自定义',
+      structure: '自定义结构',
+      pace: '1.5s',
+      core_elements: '自定义',
+      segments: [asset],
+      total_duration: `${calculateDuration(asset.time)}s`,
+      createdAt: new Date().toISOString()
+    };
+    
+    handleReplicate(tempVideo);
   };
 
   // --- View Renderers ---
@@ -808,7 +1490,10 @@ export default function App() {
 
                 <div className="flex flex-row md:flex-col gap-3 w-full md:w-auto shrink-0">
                   <button 
-                    onClick={() => { setState(s => ({ ...s, analysis: item })); navigate(ViewType.ANALYSIS); }}
+                    onClick={() => { 
+                      setState(s => ({ ...s, analysis: item })); 
+                      navigate(ViewType.ANALYSIS); 
+                    }}
                     className="flex-1 md:w-32 py-4 bg-white text-black rounded-2xl font-bold hover:bg-gray-200 transition-all shadow-lg hover:shadow-white/10"
                   >
                     查看详情
@@ -844,7 +1529,12 @@ export default function App() {
   );
 };
 
-  const tags = useMemo(() => ['全部', ...Array.from(new Set(state.assets.map(a => a.main_tag).filter(Boolean)))], [state.assets]);
+  const tags = useMemo(() => {
+    // 过滤掉"痛点"和"产品"标签
+    const allTags = Array.from(new Set(state.assets.map(a => a.main_tag).filter(Boolean)))
+      .filter(tag => tag !== '痛点' && tag !== '产品');
+    return ['全部', ...allTags];
+  }, [state.assets]);
 
   const filteredAssets = useMemo(() => state.assets
     .filter(asset => {
@@ -869,90 +1559,8 @@ export default function App() {
       return 0; // Default order
     }), [state.assets, assetSearch, assetFilter, assetSort]);
 
-  // 定义五个一级标签
-  const primaryTags = ['钩子', '证明', '卖点', '场景', '转化'];
-
-  // 定义品类列表和各品类的top3结构
-  const categories = [
-    { id: 'home-storage', name: '家居收纳', top3Structures: [
-      { id: 'home-1', structure: '钩子+卖点+证明+场景', description: '从钩子切入，展示产品卖点和证明，最后通过场景强化' },
-      { id: 'home-2', structure: '钩子+卖点+证明+卖点+场景', description: '钩子+多重卖点+证明+场景' },
-      { id: 'home-3', structure: '钩子+卖点+证明', description: '简洁的钩子+卖点+证明结构' }
-    ]},
-    { id: 'kitchen-tools', name: '厨房工具', top3Structures: [
-      { id: 'kitchen-1', structure: '钩子+卖点+证明', description: '直接展示厨房工具的使用效果' },
-      { id: 'kitchen-2', structure: '钩子+卖点+证明+场景+卖点+证明+场景+转化', description: '多重场景和证明的复杂结构' },
-      { id: 'kitchen-3', structure: '钩子+卖点+证明+卖点+卖点+证明+卖点+转化', description: '突出多个卖点的结构' }
-    ]},
-    { id: 'pet-supplies', name: '宠物用品', top3Structures: [
-      { id: 'pet-1', structure: '钩子+卖点+证明', description: '从宠物场景切入，展示产品效果' },
-      { id: 'pet-2', structure: '钩子+卖点+证明+卖点+证明+卖点', description: '多重卖点和证明' },
-      { id: 'pet-3', structure: '场景+卖点+证明+场景+卖点', description: '通过宠物场景展示产品' }
-    ]},
-    { id: 'beauty-tools', name: '美妆工具', top3Structures: [
-      { id: 'beauty-1', structure: '钩子+卖点+证明', description: '展示美妆工具的使用效果' },
-      { id: 'beauty-2', structure: '钩子+证明+卖点+证明+卖点+证明+卖点+证明+卖点+证明', description: '多重证明和卖点' },
-      { id: 'beauty-3', structure: '钩子+卖点+证明+卖点+证明+场景', description: '卖点+证明+场景的结合' }
-    ]},
-    { id: 'digital-accessories', name: '数码配件', top3Structures: [
-      { id: 'digital-1', structure: '钩子+场景+卖点+证明+场景+证明+场景+卖点', description: '通过场景展示数码配件' },
-      { id: 'digital-2', structure: '钩子+卖点+卖点+证明+卖点', description: '突出数码配件的功能卖点' },
-      { id: 'digital-3', structure: '钩子+卖点+证明+卖点+场景', description: '卖点+证明+场景的简洁结构' }
-    ]},
-    { id: 'personal-care-tools', name: '个护小工具', top3Structures: [
-      { id: 'personal-care-1', structure: '钩子+卖点+证明+场景+卖点+卖点+证明', description: '钩子+卖点+证明+场景+多重卖点+证明' },
-      { id: 'personal-care-2', structure: '钩子+卖点+证明+卖点+转化', description: '钩子+卖点+证明+卖点+转化' },
-      { id: 'personal-care-3', structure: '钩子+证明+场景+卖点+证明+卖点+场景', description: '钩子+证明+场景+卖点+证明+卖点+场景' }
-    ]},
-    { id: 'low-cost-creative', name: '低价创意好物', top3Structures: [
-      { id: 'low-cost-1', structure: '钩子+卖点', description: '简洁的钩子+卖点结构' },
-      { id: 'low-cost-2', structure: '钩子+场景+卖点+证明+卖点', description: '钩子+场景+卖点+证明+卖点' },
-      { id: 'low-cost-3', structure: '钩子+场景+钩子+卖点+证明+场景+证明', description: '钩子+场景+钩子+卖点+证明+场景+证明' }
-    ]},
-    { id: 'office-supplies', name: '办公好物', top3Structures: [
-      { id: 'office-1', structure: '钩子+卖点+证明+卖点', description: '钩子+卖点+证明+卖点' },
-      { id: 'office-2', structure: '钩子+卖点', description: '简洁的钩子+卖点结构' },
-      { id: 'office-3', structure: '钩子+场景+卖点+证明+卖点+证明', description: '钩子+场景+卖点+证明+卖点+证明' }
-    ]},
-    { id: 'home-appliances', name: '家用小电器', top3Structures: [
-      { id: 'appliances-1', structure: '钩子+卖点+证明', description: '直接展示家用小电器的使用效果' },
-      { id: 'appliances-2', structure: '钩子+场景+卖点+证明+场景', description: '通过场景展示家用小电器的功能' },
-      { id: 'appliances-3', structure: '钩子+卖点+证明+卖点+转化', description: '钩子+卖点+证明+卖点+转化' }
-    ]},
-    { id: 'outdoor-camping', name: '户外露营小物', top3Structures: [
-      { id: 'camping-1', structure: '钩子+场景+卖点+证明', description: '从户外场景切入，展示露营小物的功能' },
-      { id: 'camping-2', structure: '钩子+卖点+证明+场景+转化', description: '钩子+卖点+证明+场景+转化' },
-      { id: 'camping-3', structure: '场景+卖点+证明+卖点+证明', description: '场景+卖点+证明+卖点+证明' }
-    ]},
-    { id: 'skincare-products', name: '护肤功能品', top3Structures: [
-      { id: 'skincare-1', structure: '钩子+卖点+证明+场景', description: '展示护肤功能品的使用效果' },
-      { id: 'skincare-2', structure: '钩子+证明+卖点+证明+卖点', description: '多重证明和卖点的结合' },
-      { id: 'skincare-3', structure: '钩子+卖点+证明+卖点+证明+场景', description: '卖点+证明+场景的结合' }
-    ]},
-    { id: 'daily-necessities', name: '日用百货小工具', top3Structures: [
-      { id: 'daily-1', structure: '钩子+卖点+证明', description: '直接展示日用百货小工具的使用效果' },
-      { id: 'daily-2', structure: '钩子+场景+卖点+证明', description: '通过场景展示日用百货小工具的功能' },
-      { id: 'daily-3', structure: '钩子+卖点+证明+转化', description: '钩子+卖点+证明+转化' }
-    ]},
-    { id: 'basic-clothing', name: '服饰（基础款）', top3Structures: [
-      { id: 'clothing-1', structure: '钩子+卖点+证明', description: '展示基础款服饰的特点和优势' },
-      { id: 'clothing-2', structure: '钩子+场景+卖点+证明', description: '通过场景展示基础款服饰的搭配效果' },
-      { id: 'clothing-3', structure: '钩子+卖点+证明+场景+转化', description: '钩子+卖点+证明+场景+转化' }
-    ]},
-    { id: 'car-accessories', name: '汽车小用品', top3Structures: [
-      { id: 'car-1', structure: '钩子+卖点+证明', description: '直接展示汽车小用品的使用效果' },
-      { id: 'car-2', structure: '钩子+场景+卖点+证明+场景', description: '通过汽车场景展示产品功能' },
-      { id: 'car-3', structure: '钩子+卖点+证明+卖点+转化', description: '钩子+卖点+证明+卖点+转化' }
-    ]},
-    { id: 'cleaning-products', name: '清洁用品', top3Structures: [
-      { id: 'cleaning-1', structure: '钩子+卖点+证明', description: '直接展示清洁用品的清洁效果' },
-      { id: 'cleaning-2', structure: '钩子+场景+卖点+证明+场景', description: '通过场景展示清洁用品的使用效果' },
-      { id: 'cleaning-3', structure: '钩子+卖点+证明+卖点+证明', description: '多重卖点和证明的结合' }
-    ]}
-  ];
-
   const renderDirectGeneration = () => {
-    const handleGenerate = async () => {
+    const handleDirectGenerate = async () => {
       if (!selectedCategory || !selectedStructure) {
         pushToast('error', '请选择品类和生成结构');
         return;
@@ -964,21 +1572,15 @@ export default function App() {
       }));
 
       try {
-        // 获取选中的品类和结构
         const category = categories.find(c => c.id === selectedCategory);
         const structure = category?.top3Structures.find(s => s.id === selectedStructure);
         if (!category || !structure) {
           throw new Error('未找到选中的品类或结构');
         }
 
-        // 解析结构中的标签
         const tags = structure.structure.split('+').map(tag => tag.trim());
-
-        // 从素材库中随机获取对应标签的分镜
         const generatedSegments: VideoScriptSegment[] = tags.map((tag, index) => {
-          // 过滤出对应标签的分镜
           const tagAssets = state.assets.filter(asset => asset.main_tag === tag);
-          // 如果没有对应标签的分镜，使用默认值
           if (tagAssets.length === 0) {
             return {
               id: `direct-${Date.now()}-${index}`,
@@ -991,7 +1593,6 @@ export default function App() {
               niche: category.name
             };
           }
-          // 随机选择一个分镜
           const randomAsset = tagAssets[Math.floor(Math.random() * tagAssets.length)];
           return {
             ...randomAsset,
@@ -1000,7 +1601,6 @@ export default function App() {
           };
         });
 
-        // 创建分析结果对象
         const analysis: DeconstructedVideo = {
           id: `direct-analysis-${Date.now()}`,
           title: '直接生成视频',
@@ -1013,13 +1613,12 @@ export default function App() {
           createdAt: new Date().toISOString()
         };
 
-        // 直接进入设置界面，跳过AI生成脚本步骤
         setState(prev => ({ 
           ...prev, 
           status: ProjectStatus.IDLE,
           analysis: analysis,
           history: [analysis, ...prev.history],
-          assets: [...generatedSegments, ...prev.assets],
+          // 不要将generatedSegments添加到assets，因为它们是从素材库中选出来的
           currentView: ViewType.SETUP,
           replicationStatus: VideoGenerationStatus.IDLE
         }));
@@ -1031,7 +1630,6 @@ export default function App() {
       }
     };
 
-    // 获取选中品类的结构
     const currentCategory = categories.find(c => c.id === selectedCategory);
     const availableStructures = currentCategory?.top3Structures || [];
 
@@ -1049,7 +1647,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* 品类选择 */}
         <div className="mb-10">
           <h3 className="text-xl font-bold mb-6">选择品类</h3>
           <div className="flex flex-wrap gap-4">
@@ -1058,7 +1655,7 @@ export default function App() {
                 key={category.id}
                 onClick={() => {
                   setSelectedCategory(category.id);
-                  setSelectedStructure(null); // 重置结构选择
+                  setSelectedStructure(null);
                 }}
                 className={`px-6 py-3 rounded-2xl text-sm font-bold transition-all border ${selectedCategory === category.id ? 'border-violet-600 bg-violet-600/5' : 'border-white/10 bg-white/5 hover:border-violet-500/30 hover:bg-violet-600/3'}`}
               >
@@ -1068,13 +1665,10 @@ export default function App() {
           </div>
         </div>
 
-        {/* 结构选择 */}
         {selectedCategory && (
           <div className="mb-10">
             <h3 className="text-xl font-bold mb-6">选择{currentCategory?.name}的爆款结构</h3>
-            {/* TOP2在左，TOP1在中，TOP3在右的布局 */}
             <div className="flex flex-col md:flex-row items-center justify-center gap-6">
-              {/* TOP2 - 左边 */}
               {availableStructures[1] && (
                 <div
                   key={availableStructures[1].id}
@@ -1087,15 +1681,14 @@ export default function App() {
                   <h4 className="text-lg font-bold mb-2">TOP2</h4>
                   <p className="text-gray-500 text-sm mb-3 line-clamp-2">{availableStructures[1].description}</p>
                   <div className="flex flex-wrap gap-2 mb-3">
-                  {availableStructures[1].structure.split('+').map((tag, index) => (
-                    <span key={`${tag}-${index}`} className="px-3 py-1 bg-white/5 rounded-full text-xs font-bold text-gray-400">{tag.trim()}</span>
-                  ))}
-                </div>
+                    {availableStructures[1].structure.split('+').map((tag, index) => (
+                      <span key={`${tag}-${index}`} className="px-3 py-1 bg-white/5 rounded-full text-xs font-bold text-gray-400">{tag.trim()}</span>
+                    ))}
+                  </div>
                   <div className="text-xs text-gray-600 font-mono">{availableStructures[1].structure}</div>
                 </div>
               )}
               
-              {/* TOP1 - 中间，放大显示 */}
               {availableStructures[0] && (
                 <div
                   key={availableStructures[0].id}
@@ -1108,15 +1701,14 @@ export default function App() {
                   <h4 className="text-lg font-bold mb-2">TOP1</h4>
                   <p className="text-gray-500 text-sm mb-3 line-clamp-2">{availableStructures[0].description}</p>
                   <div className="flex flex-wrap gap-2 mb-3">
-                  {availableStructures[0].structure.split('+').map((tag, index) => (
-                    <span key={`${tag}-${index}`} className="px-3 py-1 bg-white/5 rounded-full text-xs font-bold text-gray-400">{tag.trim()}</span>
-                  ))}
-                </div>
+                    {availableStructures[0].structure.split('+').map((tag, index) => (
+                      <span key={`${tag}-${index}`} className="px-3 py-1 bg-white/5 rounded-full text-xs font-bold text-gray-400">{tag.trim()}</span>
+                    ))}
+                  </div>
                   <div className="text-xs text-gray-600 font-mono">{availableStructures[0].structure}</div>
                 </div>
               )}
               
-              {/* TOP3 - 右边 */}
               {availableStructures[2] && (
                 <div
                   key={availableStructures[2].id}
@@ -1129,10 +1721,10 @@ export default function App() {
                   <h4 className="text-lg font-bold mb-2">TOP3</h4>
                   <p className="text-gray-500 text-sm mb-3 line-clamp-2">{availableStructures[2].description}</p>
                   <div className="flex flex-wrap gap-2 mb-3">
-                  {availableStructures[2].structure.split('+').map((tag, index) => (
-                    <span key={`${tag}-${index}`} className="px-3 py-1 bg-white/5 rounded-full text-xs font-bold text-gray-400">{tag.trim()}</span>
-                  ))}
-                </div>
+                    {availableStructures[2].structure.split('+').map((tag, index) => (
+                      <span key={`${tag}-${index}`} className="px-3 py-1 bg-white/5 rounded-full text-xs font-bold text-gray-400">{tag.trim()}</span>
+                    ))}
+                  </div>
                   <div className="text-xs text-gray-600 font-mono">{availableStructures[2].structure}</div>
                 </div>
               )}
@@ -1142,7 +1734,7 @@ export default function App() {
 
         <div className="flex justify-center">
           <button
-            onClick={handleGenerate}
+            onClick={handleDirectGenerate}
             disabled={!selectedCategory || !selectedStructure}
             className={`px-12 py-4 rounded-2xl text-white font-bold text-lg transition-all shadow-lg active:scale-95 ${selectedCategory && selectedStructure ? 'bg-violet-600 hover:bg-violet-500 shadow-violet-600/30' : 'bg-gray-700 cursor-not-allowed opacity-50'}`}
           >
@@ -1153,53 +1745,7 @@ export default function App() {
     );
   };
 
-  // 计算片段持续时间（秒）
-  const calculateDuration = (timeStr: string): number => {
-    // 处理格式如"0-4s"或"10-20s"的时间字符串
-    const match = timeStr.match(/^(\d+)-(\d+)s$/);
-    if (match) {
-      const start = Number(match[1]);
-      const end = Number(match[2]);
-      return end - start;
-    }
-    // 兼容原始格式如"00:00-00:04"
-    const [start, end] = timeStr.split('-');
-    const parseTime = (time: string): number => {
-      if (time.includes(':')) {
-        const [min, sec] = time.split(':').map(Number);
-        return min * 60 + sec;
-      }
-      return Number(time.replace('s', ''));
-    };
-    return parseTime(end) - parseTime(start);
-  };
-
-  // 从素材生成视频
-  const handleGenerateFromAssets = (asset: VideoScriptSegment) => {
-    // 创建一个临时的DeconstructedVideo对象
-    const tempVideo: DeconstructedVideo = {
-      id: 'temp-' + Date.now(),
-      title: asset.sourceTitle || '未命名素材',
-      niche: asset.niche || '通用',
-      formula_name: '自定义',
-      structure: '自定义结构',
-      pace: '1.5s',
-      core_elements: '自定义',
-      segments: [asset],
-      total_duration: `${calculateDuration(asset.time)}s`,
-      createdAt: new Date().toISOString()
-    };
-    
-    handleReplicate(tempVideo);
-  };
-
   const renderAssets = () => {
-    // 定义五个一级标签
-    const primaryTags = ['钩子', '卖点', '证明', '场景', '转化'];
-    
-    // 过滤出正确的一级标签
-    const filteredTags = ['全部', ...primaryTags];
-
     return (
       <div className="max-w-7xl mx-auto py-12 px-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-10">
@@ -1242,11 +1788,15 @@ export default function App() {
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-8 custom-scrollbar scroll-smooth">
-          {filteredTags.map(tag => (
+          {tags.map(tag => (
             <button 
               key={tag}
               onClick={() => setAssetFilter(tag)}
-              className={`px-5 py-2 rounded-full text-xs font-black transition-all whitespace-nowrap border-2 ${assetFilter === tag ? 'bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-600/30' : 'bg-white/5 border-transparent text-gray-500 hover:bg-white/10 hover:text-gray-300'}`}
+              className={`px-5 py-2 rounded-full text-xs font-black transition-all whitespace-nowrap border-2 ${
+                assetFilter === tag 
+                  ? 'bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-600/30' 
+                  : 'bg-white/5 border-transparent text-gray-500 hover:bg-white/10 hover:text-gray-300'
+              }`}
             >
               {tag}
             </button>
@@ -1267,29 +1817,51 @@ export default function App() {
               key={`${asset.id}-${idx}`} 
               className="group relative flex flex-col gap-4 cursor-pointer"
             >
-              {/* 预览图和操作按钮 */}
-              <div className="aspect-[3/4] bg-gray-900 rounded-3xl overflow-hidden border border-white/5 group-hover:border-violet-500/50 group-hover:scale-[1.02] transition-all duration-500 shadow-xl group-hover:shadow-violet-600/20">
-                <img 
-                  src={asset.thumbnail} 
-                  className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-500" 
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(asset.main_tag || 'Asset')}&background=1e1b4b&color=fff&size=512`;
-                  }}
-                  // 点击图片显示详情卡片
-                  onClick={() => setExpandedAsset(expandedAsset === asset.id ? null : asset.id)}
-                  style={{ cursor: 'pointer' }}
-                />
+              {/* 预览图/视频和操作按钮 */}
+              <div className="aspect-[3/4] bg-gray-900 rounded-3xl overflow-hidden border border-white/5 group-hover:border-violet-500/50 group-hover:scale-[1.02] transition-all duration-500 shadow-xl group-hover:shadow-violet-600/20 relative">
+                {/* 缩略图 - 始终显示 */}
+                {(asset.thumbnail || asset.videoUrl) && (
+                  <img 
+                    src={asset.thumbnail || asset.videoUrl} 
+                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-500" 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(asset.main_tag || 'Asset')}&background=1e1b4b&color=fff&size=512`;
+                    }}
+                    onClick={() => setExpandedAsset(expandedAsset === asset.id ? null : asset.id)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                )}
+                
+                {/* 视频播放器 - 鼠标悬停时显示 */}
+                {asset.videoUrl && (
+                  <video 
+                    src={asset.videoUrl}
+                    className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    loop
+                    muted
+                    playsInline
+                    onMouseEnter={(e) => (e.target as HTMLVideoElement).play()}
+                    onMouseLeave={(e) => {
+                      const video = e.target as HTMLVideoElement;
+                      video.pause();
+                      video.currentTime = 0;
+                    }}
+                    onError={(e) => {
+                      console.error('视频加载失败:', asset.videoUrl);
+                    }}
+                  />
+                )}
+                
                 {/* 左上角显示计算后的时长（秒） */}
-                <div className="absolute top-4 left-4 px-2.5 py-1.5 bg-black/70 backdrop-blur-md rounded-lg text-[10px] font-mono font-bold border border-white/10">
+                <div className="absolute top-4 left-4 px-2.5 py-1.5 bg-black/70 backdrop-blur-md rounded-lg text-[10px] font-mono font-bold border border-white/10 z-10">
                   {calculateDuration(asset.time)}s
                 </div>
                 
-                {/* 右上角操作按钮 - 放在图片右上角 */}
+                {/* 右上角操作按钮 */}
                 <div className="absolute top-4 right-4 flex gap-2 z-30">
-                  {/* 复制全部内容按钮 */}
                   <button 
                     onClick={(e) => {
-                      e.stopPropagation(); // 阻止事件冒泡，避免触发图片点击事件
+                      e.stopPropagation();
                       const allContent = `视频提示词: ${asset.visual_prompt}\n首帧提示词: ${asset.visual_prompt}\n文案: ${asset.voiceover_text}`;
                       copyToClipboard(allContent, '全部内容');
                     }}
@@ -1298,10 +1870,9 @@ export default function App() {
                   >
                     <Copy size={14}/>
                   </button>
-                  {/* 删除按钮 */}
                   <button 
                     onClick={(e) => {
-                      e.stopPropagation(); // 阻止事件冒泡，避免触发图片点击事件
+                      e.stopPropagation();
                       if (confirm('确定要删除这个素材吗？')) {
                         setState(prev => ({
                           ...prev,
@@ -1320,12 +1891,10 @@ export default function App() {
 
               {/* 标签和留存策略 */}
               <div className="space-y-3">
-                {/* 标签部分 */}
                 <div className="flex flex-wrap gap-1.5">
                   <span className="text-[9px] font-black text-violet-400 uppercase tracking-tighter bg-violet-400/10 px-2 py-0.5 rounded-md border border-violet-400/20">
                     {asset.main_tag}
                   </span>
-                  {/* 二级标签 */}
                   {asset.info_density && (
                     <span className="text-[9px] font-black text-emerald-400 uppercase tracking-tighter bg-emerald-400/10 px-2 py-0.5 rounded-md border border-emerald-400/20">
                       {asset.info_density}
@@ -1338,27 +1907,23 @@ export default function App() {
                   )}
                 </div>
                 
-                {/* 留存策略 */}
                 <p className="text-[11px] text-gray-400 line-clamp-2 leading-relaxed font-medium">
                   {asset.retention_strategy}
                 </p>
               </div>
               
-              {/* 点击显示的磨砂卡片 - 以图片中心为中心点，竖版4:3比例 */}
+              {/* 点击显示的详情卡片 */}
               {expandedAsset === asset.id && (
                 <div className="absolute left-1/2 top-1/2 z-40 bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 shadow-xl transform -translate-x-1/2 -translate-y-1/2 w-[400px] aspect-[3/4] max-h-[80vh] overflow-y-auto">
                   <div className="space-y-5">
-                    {/* 视频提示词 */}
                     <div>
                       <h5 className="text-[10px] text-gray-500 font-bold mb-2 uppercase tracking-wider">视频提示词</h5>
                       <p className="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap break-words">{asset.visual_prompt}</p>
                     </div>
-                    {/* 首帧提示词 - 如果没有则显示视频提示词 */}
                     <div>
                       <h5 className="text-[10px] text-gray-500 font-bold mb-2 uppercase tracking-wider">首帧提示词</h5>
                       <p className="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap break-words">{asset.visual_prompt}</p>
                     </div>
-                    {/* 文案 */}
                     <div>
                       <h5 className="text-[10px] text-gray-500 font-bold mb-2 uppercase tracking-wider">文案</h5>
                       <p className="text-xs text-gray-300 leading-relaxed break-words">{asset.voiceover_text}</p>
@@ -1370,7 +1935,7 @@ export default function App() {
           ))}
         </div>
         
-        {/* 空状态单独处理，避免影响网格布局 */}
+        {/* 空状态 */}
         {filteredAssets.length === 0 && (
           <div className="mt-16 py-32 flex flex-col items-center justify-center text-gray-600 glass-panel border-dashed border-white/10 rounded-[3rem]">
             <Search size={64} className="mb-6 opacity-10" />
@@ -1548,6 +2113,7 @@ export default function App() {
             <button 
               onClick={() => {
                 setSelectedFile(null);
+                setOriginalVideoFile(null); // 同时清空原始视频文件
                 setPreviewUrl(null);
               }}
               className="p-3 bg-white/5 hover:bg-red-500/10 text-gray-500 hover:text-red-500 rounded-2xl transition-all"
@@ -1611,9 +2177,9 @@ export default function App() {
   const renderAnalysis = () => (
     <div className="max-w-6xl mx-auto py-12 px-6">
       <div className="flex items-center justify-between mb-10">
-        <button onClick={() => navigate(ViewType.UPLOAD)} className="group flex items-center gap-3 text-gray-400 hover:text-white transition-all bg-white/5 hover:bg-white/10 px-5 py-2.5 rounded-2xl border border-white/5">
+        <button onClick={navigateBack} className="group flex items-center gap-3 text-gray-400 hover:text-white transition-all bg-white/5 hover:bg-white/10 px-5 py-2.5 rounded-2xl border border-white/5">
           <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-          <span className="font-bold text-sm">重新分析</span>
+          <span className="font-bold text-sm">返回</span>
         </button>
         
         <div className="flex items-center gap-3">
@@ -1818,6 +2384,34 @@ export default function App() {
             )}
           </div>
 
+          {/* 剪映草稿路径配置 */}
+          <div className="mt-8 glass-panel p-6 rounded-[2rem] border border-white/5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 rounded-xl bg-blue-600/10 flex items-center justify-center text-blue-400 border border-blue-500/20">
+                <FileJson size={16} />
+              </div>
+              <h4 className="text-sm font-bold text-white">剪映草稿路径（可选）</h4>
+            </div>
+            <p className="text-xs text-gray-400 mb-4">
+              填写剪映草稿文件夹路径，导出时将自动添加到您的剪映草稿库中。留空则下载 ZIP 文件。
+            </p>
+            <input 
+              type="text" 
+              placeholder="例如：C:\Users\YourName\AppData\Local\JianyingPro\User Data\Projects\com.lveditor.draft"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-600 outline-none font-mono"
+              value={jianyingDraftPath}
+              onChange={e => setJianyingDraftPath(e.target.value)}
+            />
+            <div className="mt-3 flex items-start gap-2 text-xs text-gray-500">
+              <div className="w-4 h-4 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-blue-400 text-[10px]">💡</span>
+              </div>
+              <p>
+                提示：在剪映中打开任意草稿，点击"文件" → "打开草稿文件夹"即可找到路径
+              </p>
+            </div>
+          </div>
+
           <div className="mt-12 flex flex-col sm:flex-row gap-5">
             <button 
               onClick={() => state.analysis && handleExportJianying(state.analysis)}
@@ -1841,8 +2435,8 @@ export default function App() {
 
   const renderSetup = () => (
     <div className="max-w-3xl mx-auto py-12 px-6">
-      <button onClick={() => navigate(ViewType.ANALYSIS)} className="flex items-center gap-2 text-gray-400 hover:text-white mb-8 transition-colors">
-        <ChevronLeft size={20} /> 调整分析
+      <button onClick={navigateBack} className="flex items-center gap-2 text-gray-400 hover:text-white mb-8 transition-colors">
+        <ChevronLeft size={20} /> 返回
       </button>
 
       <StepIndicator step={2} />
@@ -1956,6 +2550,51 @@ export default function App() {
               <span>3</span>
               <span>4</span>
               <span>5</span>
+            </div>
+          </div>
+
+          {/* 新增：图片生成配置 */}
+          <div className="space-y-4 pt-4 border-t border-white/10">
+            <label className="text-sm font-bold block">5. 图片生成配置</label>
+            
+            {/* 尺寸选择 */}
+            <div className="space-y-2">
+              <label className="text-xs text-gray-400 font-medium">画面比例</label>
+              <div className="grid grid-cols-3 gap-3">
+                {['9:16', '16:9', '1:1'].map(size => (
+                  <button
+                    key={size}
+                    onClick={() => setState(s => ({ ...s, imageConfig: { ...s.imageConfig, size } }))}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all border ${
+                      state.imageConfig.size === size
+                        ? 'border-violet-600 bg-violet-600/10 text-violet-400'
+                        : 'border-white/10 bg-white/5 text-gray-400 hover:border-violet-500/30'
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 分辨率选择 */}
+            <div className="space-y-2">
+              <label className="text-xs text-gray-400 font-medium">分辨率</label>
+              <div className="grid grid-cols-2 gap-3">
+                {(['2K', '4K'] as const).map(resolution => (
+                  <button
+                    key={resolution}
+                    onClick={() => setState(s => ({ ...s, imageConfig: { ...s.imageConfig, resolution } }))}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all border ${
+                      state.imageConfig.resolution === resolution
+                        ? 'border-violet-600 bg-violet-600/10 text-violet-400'
+                        : 'border-white/10 bg-white/5 text-gray-400 hover:border-violet-500/30'
+                    }`}
+                  >
+                    {resolution}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </section>
@@ -2998,15 +3637,17 @@ export default function App() {
           }
         );
         
-        // 更新最终结果
+        // 更新最终结果（添加时间戳破坏缓存）
+        const timestamp = Date.now();
         setComposedVideos(prev => prev.map((v, i) => ({
           ...v,
-          outputUrl: outputUrls[i],
+          outputUrl: outputUrls[i] ? `${outputUrls[i]}?t=${timestamp}` : '',
           progress: 100,
           status: outputUrls[i] ? 'completed' : 'failed'
         })));
         
         setCompositionStatus('completed');
+        pushToast('success', `所有视频合成完成！`);
         
       } catch (error) {
         console.error('Video composition failed:', error);

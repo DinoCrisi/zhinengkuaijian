@@ -32,6 +32,7 @@ export interface VideoScriptSegment {
   voiceover_text: string;
   retention_strategy: string;
   thumbnail?: string;
+  videoUrl?: string; // 存储的视频URL
   sourceTitle?: string;
   niche?: string;
 }
@@ -80,6 +81,8 @@ export interface AppState {
   currentReplication: ScriptReplicationResult | null;
   // 新增：图片生成配置
   imageConfig: ImageGenerationConfig;
+  // 新增：导航历史栈
+  navigationHistory: ViewType[];
 }
 
 // 图片生成配置

@@ -3,4 +3,7 @@ numpy
 soundfile
 requests
 scipy
+opencv-python
+flask
+flask-cors
 

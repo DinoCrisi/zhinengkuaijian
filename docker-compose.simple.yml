@@ -1,0 +1,127 @@
+# 简化版 Docker Compose - 不包含 MinIO
+# 适合快速测试和开发
+
+services:
+  # 前端服务
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: smartclip-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - proxy-server
+      - video-composer
+      - jianying-export
+      - video-splitter
+      - video-storage
+    networks:
+      - smartclip-network
+    restart: unless-stopped
+
+  # 代理服务器 (8888)
+  proxy-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: smartclip-proxy
+    command: python proxy_server.py
+    ports:
+      - "8888:8888"
+    env_file:
+      - .env
+    volumes:
+      - ./server:/app/server
+      - ./.env:/app/.env
+    networks:
+      - smartclip-network
+    restart: unless-stopped
+
+  # 视频合成服务 (8889)
+  video-composer:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: smartclip-video-composer
+    command: python video_composer.py
+    ports:
+      - "8889:8889"
+    env_file:
+      - .env
+    volumes:
+      - ./server:/app/server
+      - ./word:/app/word
+      - video-temp:/app/server/temp_videos
+      - video-output:/app/server/output_videos
+    networks:
+      - smartclip-network
+    restart: unless-stopped
+
+  # 剪映导出服务 (8890)
+  jianying-export:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: smartclip-jianying
+    command: python jianying_draft_generator.py
+    ports:
+      - "8890:8890"
+    env_file:
+      - .env
+    volumes:
+      - ./server:/app/server
+      - ./pyJianYingDraft:/app/pyJianYingDraft
+      - jianying-output:/app/server/output_drafts
+    networks:
+      - smartclip-network
+    restart: unless-stopped
+
+  # 视频分割服务 (8891)
+  video-splitter:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: python video_splitter.py
+    container_name: smartclip-video-splitter
+    ports:
+      - "8891:8891"
+    env_file:
+      - .env
+    volumes:
+      - ./server:/app/server
+      - video-segments:/app/server/output_segments
+    networks:
+      - smartclip-network
+    restart: unless-stopped
+
+  # 视频存储服务 (8892) - 使用本地存储
+  video-storage:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: python video_storage_server_minio.py
+    container_name: smartclip-video-storage
+    ports:
+      - "8892:8892"
+    env_file:
+      - .env
+    environment:
+      - MINIO_ENABLED=false
+    volumes:
+      - ./server:/app/server
+      - video-storage:/app/server/stored_videos
+    networks:
+      - smartclip-network
+    restart: unless-stopped
+
+networks:
+  smartclip-network:
+    driver: bridge
+
+volumes:
+  video-temp:
+  video-output:
+  video-segments:
+  video-storage:
+  jianying-output:
