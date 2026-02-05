@@ -1,0 +1,5 @@
+# MinIO 相关依赖
+minio==7.2.5
+urllib3>=1.26.0
+certifi
+python-dotenv==1.0.0

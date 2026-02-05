@@ -12,7 +12,7 @@ export const analyzeVideoAI = async (filename: string): Promise<DeconstructedVid
     model: "gemini-3-flash-preview",
     contents: `假装你正在分析一个名为 "${filename}" 的爆款短视频。
     请提取它的:
-    1. 结构公式 (例如: 痛点+产品+对比+促销)
+    1. 结构公式 (例如: 钩子+产品+对比+促销)
     2. 分镜节奏 (例如: 2秒/镜头)
     3. 核心视觉元素 (例如: 文字+大箭头)
     4. 详细的分镜拆解 (4个分镜)`,

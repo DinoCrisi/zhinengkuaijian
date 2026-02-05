@@ -3,8 +3,10 @@
  * 调用后端 FFmpeg API 合成完整视频
  */
 
+import { API_URLS } from '../config/apiConfig';
+
 // API 配置
-const COMPOSER_API_URL = 'http://127.0.0.1:8889';
+const COMPOSER_API_URL = API_URLS.VIDEO_COMPOSER;
 
 export interface ComposeVideoRequest {
   videoUrls: string[];

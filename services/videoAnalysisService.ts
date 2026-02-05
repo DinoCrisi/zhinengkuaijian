@@ -1,16 +1,16 @@
 
 import { DeconstructedVideo, VideoScriptSegment } from '../types';
 import { callProxy } from './proxyClient';
+import { smartCleanTag } from './tagValidationService';
+import { API_URLS, AI_MODELS, API_CONFIG } from '../config/apiConfig';
 
 const _frameCache = new Map<string, { frames: string[], duration: number }>();
 
 // Configuration
-const API_CONFIG = {
-  // Using the Python proxy server as in the source project
-  PROXY_URL: 'http://127.0.0.1:8888/api/chat',
-  // Using configuration from window.FORCE_API_CONFIG in video_analyzer.html
-  MODEL_NAME: 'doubao-seed-1-8-251228', 
-  MAX_TOKENS: 65535
+const VIDEO_ANALYSIS_CONFIG = {
+  PROXY_URL: API_URLS.PROXY_CHAT,
+  MODEL_NAME: AI_MODELS.VIDEO_ANALYSIS,
+  MAX_TOKENS: API_CONFIG.MAX_TOKENS
 };
 
 // Types for Source Analysis Result
@@ -191,7 +191,10 @@ function buildAnalysisPrompt(productName: string, productDesc: string = '', srtC
      *   **规则**: 只要背景和主要动作没变（例如一直是手在涂抹），即使有轻微位移，也视为同一个 Shot。 
  
  2.  **标签匹配 (Tagging)**: 
-     *   判断该 Shot 属于 **唯一一个** **一级标签** (如卖点)。每个镜头只能分配一个一级标签，不能是多个标签的组合（如【证明】+【卖点】）。 
+     *   判断该 Shot 属于 **唯一一个** **一级标签** (如卖点)。
+     *   **严格规则**：每个镜头只能分配一个一级标签，**绝对不能**是多个标签的组合（如【证明】+【卖点】、【卖点+证明】等）。
+     *   **禁止使用**："+"、"、"、"和"等连接符来组合标签。
+     *   **只能从以下5个标签中选择一个**：钩子、卖点、证明、转化、场景。
      *   评估该 Shot 的 **视觉语言** (如产品特写) 和 **信息密度** (如中密度)。 
      *   根据各标签的判定规则和权重计算，选择最符合的单一一级标签。 
  
@@ -276,7 +279,7 @@ function buildAnalysisPrompt(productName: string, productDesc: string = '', srtC
        "shot_id": 1, 
        "time_range": "00:00-00:04", 
        "module_tags": { 
-         "l1_category": "钩子", // 注意：每个镜头只能有一个一级标签，不能是多个标签的组合（如【证明】+【卖点】）
+         "l1_category": "钩子", // 严格规则：每个镜头只能有一个一级标签，绝对不能是多个标签的组合（如【证明】+【卖点】、【卖点+证明】等）。只能从以下5个标签中选择一个：钩子、卖点、证明、转化、场景
          "l2_visual": "对比镜头", 
          "info_density": "高密度" 
        }, 
@@ -355,21 +358,21 @@ async function callVolcanoAPI(frames: string[], prompt: string): Promise<any> {
     });
 
     const requestBody = {
-        model: API_CONFIG.MODEL_NAME,
+        model: VIDEO_ANALYSIS_CONFIG.MODEL_NAME,
         messages: [
             {
                 role: "user",
                 content: content
             }
         ],
-        max_completion_tokens: API_CONFIG.MAX_TOKENS,
+        max_completion_tokens: VIDEO_ANALYSIS_CONFIG.MAX_TOKENS,
         reasoning_effort: "medium",
         temperature: 0.7
     };
 
-    console.log('Calling API via Proxy:', API_CONFIG.PROXY_URL);
+    console.log('Calling API via Proxy:', VIDEO_ANALYSIS_CONFIG.PROXY_URL);
 
-    const data = await callProxy<any>(API_CONFIG.PROXY_URL, {
+    const data = await callProxy<any>(VIDEO_ANALYSIS_CONFIG.PROXY_URL, {
         target: 'doubao_chat',
         body: requestBody
     });
@@ -464,10 +467,18 @@ export async function analyzeVideoReal(file: File, productName: string = '', pro
         
         const thumbnail = frames[Math.min(frameIndex, frames.length - 1)];
 
+        // 清理标签
+        const cleanedTag = smartCleanTag(shot.module_tags.l1_category);
+        
+        // 如果标签无效，记录警告但仍然创建分镜（使用原始标签）
+        if (!cleanedTag) {
+            console.warn(`⚠️ 无效标签: "${shot.module_tags.l1_category}" (分镜 ${shot.shot_id})`);
+        }
+
         return {
             id: `shot-${shot.shot_id}`,
             time: shot.time_range,
-            main_tag: shot.module_tags.l1_category,
+            main_tag: cleanedTag || shot.module_tags.l1_category, // 使用清理后的标签，如果清理失败则使用原始标签
             info_density: shot.module_tags.info_density,
             l2_visual: shot.module_tags.l2_visual,
             visual_prompt: shot.seedance_prompt,

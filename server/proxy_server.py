@@ -15,10 +15,15 @@ import socket
 import os
 import time
 import urllib.parse
+import sys
 
 # ==================== 配置 ====================
 # 获取项目根目录
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# 导入全局配置
+sys.path.insert(0, os.path.join(PROJECT_ROOT, 'server'))
+from config import BASE_HOST, SERVICE_PORTS
 
 def load_env():
     """手动加载 .env 文件，避免依赖 python-dotenv"""
@@ -243,14 +248,16 @@ class ProxyHandler(BaseHTTPRequestHandler):
         """自定义日志格式"""
         print(f"[{self.log_date_time_string()}] {format % args}")
 
-def run_server(port=8888):
+def run_server(port=None):
     """运行代理服务器"""
+    if port is None:
+        port = SERVICE_PORTS['PROXY']
     server_address = ('', port)
     httpd = HTTPServer(server_address, ProxyHandler)
     print(f"=" * 60)
     print(f"  AI API 代理服务器 (视频分析版) 已启动")
-    print(f"  监听端口: http://127.0.0.1:{port}")
-    print(f"  代理地址: http://127.0.0.1:{port}/api/chat")
+    print(f"  监听端口: http://{BASE_HOST}:{port}")
+    print(f"  代理地址: http://{BASE_HOST}:{port}/api/chat")
     print(f"=" * 60)
     try:
         httpd.serve_forever()

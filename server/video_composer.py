@@ -11,6 +11,7 @@ import subprocess
 import urllib.request
 import urllib.parse
 import shutil
+import sys
 from pathlib import Path
 from typing import List, Dict
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -19,6 +20,11 @@ import time
 
 # 解决 OpenMP 库冲突问题
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
+# 导入全局配置
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, 'server'))
+from config import BASE_HOST, SERVICE_PORTS
 
 # 配置
 TEMP_DIR = Path("temp_videos")
@@ -510,7 +516,7 @@ class VideoComposerHandler(BaseHTTPRequestHandler):
                 pass
             
             # 5. 完成
-            output_url = f"http://127.0.0.1:8889/output/{output_filename}"
+            output_url = f"http://{BASE_HOST}:{SERVICE_PORTS['VIDEO_COMPOSER']}/output/{output_filename}"
             tasks[task_id]['status'] = 'completed'
             tasks[task_id]['progress'] = 100
             tasks[task_id]['outputUrl'] = output_url
@@ -528,11 +534,13 @@ class VideoComposerHandler(BaseHTTPRequestHandler):
         print(f"[{self.log_date_time_string()}] {format % args}")
 
 
-def run_server(port=8889):
+def run_server(port=None):
     """启动视频合成服务器"""
+    if port is None:
+        port = SERVICE_PORTS['VIDEO_COMPOSER']
     server_address = ('', port)
     httpd = HTTPServer(server_address, VideoComposerHandler)
-    print(f"🎬 Video Composer Server running on http://127.0.0.1:{port}")
+    print(f"🎬 Video Composer Server running on http://{BASE_HOST}:{port}")
     print(f"📁 Temp directory: {TEMP_DIR.absolute()}")
     print(f"📁 Output directory: {OUTPUT_DIR.absolute()}")
     print(f"\nAPI Endpoints:")

@@ -1,11 +1,12 @@
 import { DeconstructedVideo, ProductInfo, ScriptReplicationResult, ReplicatedSegment } from '../types';
 import { callProxy } from './proxyClient';
+import { API_URLS, AI_MODELS, API_CONFIG as GLOBAL_API_CONFIG } from '../config/apiConfig';
 
 // Configuration - 使用与视频分析相同的配置
 const API_CONFIG = {
-  PROXY_URL: 'http://127.0.0.1:8888/api/chat',
-  MODEL_NAME: 'doubao-seed-1-8-251228', 
-  MAX_TOKENS: 65535
+  PROXY_URL: API_URLS.PROXY_CHAT,
+  MODEL_NAME: AI_MODELS.SCRIPT_GENERATION,
+  MAX_TOKENS: GLOBAL_API_CONFIG.MAX_TOKENS
 };
 
 /**

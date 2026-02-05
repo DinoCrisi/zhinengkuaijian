@@ -1,11 +1,12 @@
 import { ReplicatedSegment } from '../types';
 import { callProxy } from './proxyClient';
 import { getImageGenerationSettings, ConcurrencyController } from './imageGenerationConfig';
+import { API_URLS, AI_MODELS } from '../config/apiConfig';
 
 // Seedream API 配置
 const IMAGE_API_CONFIG = {
-  PROXY_URL: 'http://127.0.0.1:8888/api/chat',
-  MODEL_NAME: 'doubao-seedream-4-5-251128', 
+  PROXY_URL: API_URLS.PROXY_CHAT,
+  MODEL_NAME: AI_MODELS.IMAGE_GENERATION,
 };
 
 // 图片生成配置

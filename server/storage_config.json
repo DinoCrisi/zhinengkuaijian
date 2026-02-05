@@ -1,0 +1,19 @@
+{
+  "max_active_videos": 5000,
+  "max_total_size_gb": 500,
+  "archive_enabled": true,
+  "auto_archive_threshold_percent": 95,
+  "description": {
+    "max_active_videos": "活跃素材库最大视频数量，超出后自动归档最旧的素材",
+    "max_total_size_gb": "活跃素材库最大存储空间（GB），超出后自动归档",
+    "archive_enabled": "是否启用归档功能（true=归档，false=禁用自动管理）",
+    "auto_archive_threshold_percent": "达到此百分比时触发自动归档（建议95%）"
+  },
+  "notes": [
+    "修改配置后需要重启视频存储服务",
+    "归档的素材不会被删除，保存在 stored_videos/archive/ 目录",
+    "可通过 API 随时恢复归档的素材",
+    "建议根据磁盘空间调整 max_total_size_gb",
+    "如果磁盘空间充足，可以将阈值调得更大"
+  ]
+}

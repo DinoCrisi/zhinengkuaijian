@@ -1,10 +1,11 @@
 import { ReplicatedSegment } from '../types';
 import { callProxy } from './proxyClient';
+import { API_URLS, AI_MODELS } from '../config/apiConfig';
 
 // Seedance API 配置
 const VIDEO_API_CONFIG = {
-  PROXY_URL: 'http://127.0.0.1:8888/api/chat',
-  MODEL_NAME: 'doubao-seedance-1-5-pro-251215',
+  PROXY_URL: API_URLS.PROXY_CHAT,
+  MODEL_NAME: AI_MODELS.VIDEO_GENERATION,
 };
 
 // 视频生成配置
@@ -79,12 +80,12 @@ async function createVideoTask(
     watermark: config.watermark,
     resolution: config.resolution,
     ratio: config.ratio,
-    duration: duration
+    duration: duration  // 使用数字格式，不是字符串
   };
 
   console.log(`Creating video task for segment: ${segment.id}`);
   console.log('Video generation config:', {
-    duration: `${duration}s`,
+    duration: duration,
     resolution: config.resolution,
     ratio: config.ratio,
     generateAudio: config.generateAudio,

@@ -1,18 +1,21 @@
 /**
  * 剪映工程文件导出服务
  * 使用后端 pyJianYingDraft 库生成真正的剪映工程文件
+ * 支持导出分割后的视频分镜
  */
 
-import { ReplicatedSegment } from '../types';
+import { API_URLS } from '../config/apiConfig';
 
-const JIANYING_API_URL = 'http://127.0.0.1:8890/api/generate-draft';
-const JIANYING_OUTPUT_URL = 'http://127.0.0.1:8890/output';
+const JIANYING_API_URL = API_URLS.JIANYING_EXPORT_API;
+const JIANYING_OUTPUT_URL = API_URLS.JIANYING_OUTPUT;
+const VIDEO_SEGMENTS_URL = API_URLS.VIDEO_SEGMENTS;
 
 export interface JianyingExportConfig {
   projectName: string;
   width: number;
   height: number;
   fps: number;
+  draftPath?: string; // 可选的剪映草稿路径
 }
 
 export interface JianyingExportData {
@@ -27,13 +30,14 @@ export interface JianyingExportData {
     script_content: string;
   }>;
   videos: string[];
+  draftPath?: string; // 可选的剪映草稿路径
 }
 
 /**
- * 生成剪映工程文件
+ * 生成剪映工程文件（使用分割后的视频）
  */
 export async function generateJianyingDraft(
-  segments: ReplicatedSegment[],
+  segments: any[],
   videoUrls: string[],
   config: JianyingExportConfig
 ): Promise<string> {
@@ -50,11 +54,12 @@ export async function generateJianyingDraft(
     fps: config.fps,
     segments: segments.map(seg => ({
       time: seg.time,
-      narrative_type: seg.narrative_type,
-      voiceover_text: seg.voiceover_text,
-      script_content: seg.script_content
+      narrative_type: seg.narrative_type || seg.main_tag,
+      voiceover_text: seg.voiceover_text || '',
+      script_content: seg.script_content || ''
     })),
-    videos: videoUrls
+    videos: videoUrls,
+    ...(config.draftPath && { draftPath: config.draftPath }) // 如果提供了草稿路径，则添加到请求中
   };
 
   try {
@@ -93,14 +98,21 @@ export async function generateJianyingDraft(
  */
 export async function downloadJianyingDraft(draftFile: string): Promise<void> {
   try {
-    const downloadUrl = `${JIANYING_OUTPUT_URL}/${draftFile.split('/').pop()}`;
+    // draftFile 格式: "/output/filename.zip"
+    // 需要进行 URL 编码以支持中文文件名
+    const filename = draftFile.split('/').pop() || 'jianying_draft.zip';
+    const encodedFilename = encodeURIComponent(filename);
+    const downloadUrl = `${JIANYING_OUTPUT_URL}/${encodedFilename}`;
     
-    console.log(`📥 下载剪映工程文件: ${downloadUrl}`);
+    console.log(`📥 下载剪映工程文件`);
+    console.log(`原始文件名: ${filename}`);
+    console.log(`编码文件名: ${encodedFilename}`);
+    console.log(`下载链接: ${downloadUrl}`);
 
     // 创建下载链接
     const a = document.createElement('a');
     a.href = downloadUrl;
-    a.download = draftFile.split('/').pop() || 'jianying_draft.zip';
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -113,10 +125,10 @@ export async function downloadJianyingDraft(draftFile: string): Promise<void> {
 }
 
 /**
- * 生成并下载剪映工程文件
+ * 生成并下载剪映工程文件（使用生成的视频 URL）
  */
 export async function generateAndDownloadJianyingDraft(
-  segments: ReplicatedSegment[],
+  segments: any[],
   videoUrls: string[],
   projectName: string,
   config?: Partial<JianyingExportConfig>
@@ -129,7 +141,12 @@ export async function generateAndDownloadJianyingDraft(
   };
 
   try {
-    // 生成工程文件
+    console.log('📹 使用生成的视频文件:');
+    videoUrls.forEach((url, index) => {
+      console.log(`  ${index + 1}. ${url.substring(0, 80)}...`);
+    });
+
+    // 生成工程文件（直接使用视频 URL）
     const draftFile = await generateJianyingDraft(segments, videoUrls, fullConfig);
 
     // 下载文件
